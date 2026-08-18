@@ -21,11 +21,12 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 
 ```
 app/
-  api/routes/   # HTTP endpoints
+  api/routes/   # HTTP endpoints (request/response only, no business logic)
   core/         # settings/config
   db/           # engine, session, declarative base
   models/       # SQLAlchemy models
   schemas/      # Pydantic schemas
+  services/     # business logic / data access, called by routes
   main.py       # FastAPI app entrypoint
 alembic/        # migrations
 tests/          # pytest + testcontainers integration tests
