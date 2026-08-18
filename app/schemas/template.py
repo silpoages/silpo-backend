@@ -4,21 +4,21 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class ItemBase(BaseModel):
+class TemplateBase(BaseModel):
     name: str
     description: str | None = None
 
 
-class ItemCreate(ItemBase):
+class TemplateCreate(TemplateBase):
     pass
 
 
-class ItemUpdate(BaseModel):
+class TemplateUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
 
 
-class ItemRead(ItemBase):
+class TemplateRead(TemplateBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

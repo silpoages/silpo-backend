@@ -138,14 +138,14 @@ This works the same way on Windows (with Docker Desktop running), Linux, and mac
 
 ## Example endpoint
 
-A minimal `Item` CRUD is included at `/items` to validate the API → SQLAlchemy → PostgreSQL
-path end-to-end:
+A minimal `Template` CRUD is included at `/templates` to validate the API → SQLAlchemy →
+PostgreSQL path end-to-end. Rename/replace it with your first real entity.
 
-- `POST /items`
-- `GET /items`
-- `GET /items/{id}`
-- `PATCH /items/{id}`
-- `DELETE /items/{id}`
+- `POST /templates`
+- `GET /templates`
+- `GET /templates/{id}`
+- `PATCH /templates/{id}`
+- `DELETE /templates/{id}`
 - `GET /health`
 
 ## Out of scope

@@ -1,4 +1,4 @@
-"""create items table
+"""create templates table
 
 Revision ID: ce00fd6af919
 Revises:
@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "items",
+        "templates",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.String(length=1024), nullable=True),
@@ -34,4 +34,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table("items")
+    op.drop_table("templates")

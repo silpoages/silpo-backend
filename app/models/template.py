@@ -8,8 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class Item(Base):
-    __tablename__ = "items"
+class Template(Base):
+    __tablename__ = "templates"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
