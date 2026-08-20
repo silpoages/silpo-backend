@@ -1,0 +1,12 @@
+{
+  "name": "silpo-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Git hooks (Husky) for silpo-backend. The API itself is Python; see pyproject.toml.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

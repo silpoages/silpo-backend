@@ -16,6 +16,8 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 | PostgreSQL driver | asyncpg |
 | Tests | pytest + pytest-asyncio + testcontainers |
 | Dependency manager | uv |
+| Linter / formatter | Ruff |
+| Git hooks | Husky |
 
 ## Project layout
 
@@ -36,6 +38,7 @@ tests/          # pytest + testcontainers integration tests
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package/dependency manager)
 - [Docker](https://docs.docker.com/get-docker/) + Docker Compose v2 (`docker compose`)
+- [Node.js](https://nodejs.org/) 18+ (only used to run Husky git hooks, no JS app code lives here)
 
 Install `uv`:
 
@@ -67,6 +70,13 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
    ```bash
    uv sync
+   ```
+
+3. Install git hooks (Husky). This works the same on Linux, macOS, and Windows (via Git Bash,
+   which ships with Git for Windows):
+
+   ```bash
+   npm install
    ```
 
 ## Running with Docker (recommended)
@@ -135,6 +145,40 @@ uv run pytest
 ```
 
 This works the same way on Windows (with Docker Desktop running), Linux, and macOS.
+
+## Linting
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Auto-fix / auto-format:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+## Git hooks (Husky)
+
+After `npm install`, a `pre-commit` hook runs `ruff check` and `ruff format --check` on every
+commit and blocks it if either fails. Hooks live in [.husky/](.husky/) as plain POSIX shell
+scripts, executed via Git's own hook mechanism (`core.hooksPath`) — this works identically on
+Linux, macOS, and Windows (Git for Windows bundles Git Bash, which provides the `sh` these
+scripts run under). No native Windows-specific setup is required.
+
+## CI
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push and pull request:
+
+- **Lint** — `ruff check` + `ruff format --check`
+- **Test** — `pytest` (testcontainers spins up PostgreSQL inside the runner)
+- **Build** — builds the Docker image (runs only if lint and test pass)
+
+All three jobs must pass before a PR can be merged. To enforce this as a hard block, add them as
+required status checks in the repository's branch protection settings (Settings → Branches →
+Branch protection rules → `main`).
 
 ## Example endpoint
 

@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node (Husky git hooks tooling only — no JS app code lives here)
+node_modules/
