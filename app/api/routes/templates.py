@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_template_service
+from app.models.template import Template
 from app.schemas.template import TemplateCreate, TemplateRead, TemplateUpdate
 from app.services.template import TemplateService
 
@@ -12,19 +13,21 @@ router = APIRouter(prefix="/templates", tags=["templates"])
 @router.post("", response_model=TemplateRead, status_code=status.HTTP_201_CREATED)
 async def create_template(
     payload: TemplateCreate, service: TemplateService = Depends(get_template_service)
-):
+) -> Template:
     return await service.create(payload)
 
 
 @router.get("", response_model=list[TemplateRead])
-async def list_templates(service: TemplateService = Depends(get_template_service)):
+async def list_templates(
+    service: TemplateService = Depends(get_template_service),
+) -> list[Template]:
     return await service.list()
 
 
 @router.get("/{template_id}", response_model=TemplateRead)
 async def get_template(
     template_id: uuid.UUID, service: TemplateService = Depends(get_template_service)
-):
+) -> Template:
     template = await service.get(template_id)
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -36,7 +39,7 @@ async def update_template(
     template_id: uuid.UUID,
     payload: TemplateUpdate,
     service: TemplateService = Depends(get_template_service),
-):
+) -> Template:
     template = await service.get(template_id)
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
