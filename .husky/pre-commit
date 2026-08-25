@@ -1,2 +1,26 @@
+set -e
+
 uv run ruff check .
 uv run ruff format --check .
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$BRANCH" != "develop" ]; then
+  git fetch origin develop --quiet 2>/dev/null || true
+
+  if git show-ref --verify --quiet refs/remotes/origin/develop; then
+    DEVELOP_REF="origin/develop"
+  elif git show-ref --verify --quiet refs/heads/develop; then
+    DEVELOP_REF="develop"
+  else
+    DEVELOP_REF=""
+  fi
+
+  if [ -n "$DEVELOP_REF" ]; then
+    echo "Verificando conflitos com $DEVELOP_REF..."
+    if ! git merge-tree --write-tree HEAD "$DEVELOP_REF" > /dev/null 2>&1; then
+      echo "Erro: esta branch tem conflitos com '$DEVELOP_REF'. Resolva-os antes de commitar."
+      exit 1
+    fi
+  fi
+fi
