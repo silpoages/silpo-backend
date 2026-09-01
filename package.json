@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "description": "Git hooks (Husky) for silpo-backend. The API itself is Python; see pyproject.toml.",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "prettier": "^3.9.6"
   }
 }
