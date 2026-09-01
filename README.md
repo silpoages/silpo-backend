@@ -7,17 +7,17 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Web framework | FastAPI |
-| ORM | SQLAlchemy 2.0 (async) |
-| Validation | Pydantic v2 |
-| Migrations | Alembic (async) |
-| PostgreSQL driver | asyncpg |
-| Tests | pytest + pytest-asyncio + testcontainers |
-| Dependency manager | uv |
-| Linter / formatter | Ruff |
-| Git hooks | Husky |
+| Layer              | Technology                               |
+| ------------------ | ---------------------------------------- |
+| Web framework      | FastAPI                                  |
+| ORM                | SQLAlchemy 2.0 (async)                   |
+| Validation         | Pydantic v2                              |
+| Migrations         | Alembic (async)                          |
+| PostgreSQL driver  | asyncpg                                  |
+| Tests              | pytest + pytest-asyncio + testcontainers |
+| Dependency manager | uv                                       |
+| Linter / formatter | Ruff                                     |
+| Git hooks          | Husky                                    |
 
 ## Project layout
 
@@ -43,11 +43,13 @@ tests/          # pytest + testcontainers integration tests
 Install `uv`:
 
 **Linux / macOS**
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Windows (PowerShell)**
+
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
@@ -56,28 +58,30 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 1. Copy the environment file and adjust if needed:
 
-   **Linux / macOS**
-   ```bash
-   cp .env.example .env
-   ```
+    **Linux / macOS**
 
-   **Windows (PowerShell)**
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+    ```bash
+    cp .env.example .env
+    ```
+
+    **Windows (PowerShell)**
+
+    ```powershell
+    Copy-Item .env.example .env
+    ```
 
 2. Install dependencies (creates `.venv` and resolves/writes `uv.lock`):
 
-   ```bash
-   uv sync
-   ```
+    ```bash
+    uv sync
+    ```
 
 3. Install git hooks (Husky). This works the same on Linux, macOS, and Windows (via Git Bash,
    which ships with Git for Windows):
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 ## Running with Docker (recommended)
 
@@ -92,11 +96,13 @@ automatically before the server starts. The API is available at http://localhost
 (docs at http://localhost:8000/docs).
 
 Stop and remove containers:
+
 ```bash
 docker compose down
 ```
 
 Stop and also wipe the database volume:
+
 ```bash
 docker compose down -v
 ```
@@ -104,32 +110,35 @@ docker compose down -v
 ## Running locally (without Docker for the API)
 
 1. Start only PostgreSQL via Docker:
-   ```bash
-   docker compose up -d db
-   ```
+    ```bash
+    docker compose up -d db
+    ```
 2. Make sure `.env` has `POSTGRES_HOST=localhost`.
 3. Apply migrations:
-   ```bash
-   uv run alembic upgrade head
-   ```
+    ```bash
+    uv run alembic upgrade head
+    ```
 4. Run the API with reload:
-   ```bash
-   uv run uvicorn app.main:app --reload
-   ```
+    ```bash
+    uv run uvicorn app.main:app --reload
+    ```
 
 ## Migrations
 
 Create a new migration after changing models in `app/models/`:
+
 ```bash
 uv run alembic revision --autogenerate -m "describe change"
 ```
 
 Apply migrations:
+
 ```bash
 uv run alembic upgrade head
 ```
 
 Roll back the last migration:
+
 ```bash
 uv run alembic downgrade -1
 ```
