@@ -1,7 +1,7 @@
 import enum
-from sqlalchemy import Enum
 
-class Gender(str, enum.Enum):
+
+class Gender(enum.StrEnum):
     MALE = "MALE"
     FEMALE = "FEMALE"
     NON_BINARY = "NON_BINARY"

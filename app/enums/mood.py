@@ -1,6 +1,7 @@
 import enum
 
-class Mood(str, enum.Enum):
+
+class Mood(enum.StrEnum):
     FELIZ = "FELIZ"
     BEM = "BEM"
     CANSADO = "CANSADO"

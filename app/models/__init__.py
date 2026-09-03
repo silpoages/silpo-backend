@@ -1,16 +1,17 @@
-from app.models.achievement_log import AchievementLog
-from app.models.achievement import Achievement
-from app.models.activity_session import ActivitySession
-from app.models.activity import Activity
-from app.models.breath_activity import BreathActivity
-from app.models.daily_message import DailyMessage
-from app.models.diary_entry import DiaryEntry
-from app.models.emergency_contact import EmergencyContact
-from app.models.good_practice_log import GoodPracticeLog
-from app.models.good_practice import GoodPractice
-from app.models.meditation_activity import MeditationActivity
-from app.models.mood_log import MoodLog
-from app.models.professional_patient import ProfessionalPatient
-from app.models.self_regulation_activity import SelfRegulationActivity
-from app.models.self_regulation_session import SelfRegulationSession
-from app.models.user import User
+from app.models.achievement import Achievement as Achievement
+from app.models.achievement_log import AchievementLog as AchievementLog
+from app.models.activity import Activity as Activity
+from app.models.activity_session import ActivitySession as ActivitySession
+from app.models.breath_activity import BreathActivity as BreathActivity
+from app.models.daily_message import DailyMessage as DailyMessage
+from app.models.diary_entry import DiaryEntry as DiaryEntry
+from app.models.emergency_contact import EmergencyContact as EmergencyContact
+from app.models.good_practice import GoodPractice as GoodPractice
+from app.models.good_practice_log import GoodPracticeLog as GoodPracticeLog
+from app.models.meditation_activity import MeditationActivity as MeditationActivity
+from app.models.mood_log import MoodLog as MoodLog
+from app.models.professional_patient import ProfessionalPatient as ProfessionalPatient
+from app.models.self_regulation_activity import SelfRegulationActivity as SelfRegulationActivity
+from app.models.self_regulation_session import SelfRegulationSession as SelfRegulationSession
+from app.models.template import Template as Template
+from app.models.user import User as User

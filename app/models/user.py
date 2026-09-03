@@ -1,14 +1,12 @@
 import uuid
-from datetime import datetime
-from datetime import date
+from datetime import date, datetime
 
-from app.enums import Gender, Role
-
-from sqlalchemy import Date, DateTime, func, Enum, Boolean, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.enums import Gender, Role
 
 
 class User(Base):
@@ -28,8 +26,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    deleted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
