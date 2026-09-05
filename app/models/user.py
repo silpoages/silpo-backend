@@ -14,12 +14,18 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
-    gender: Mapped[Gender] = mapped_column(Enum(Gender, name="gender"), nullable=False)
+    gender: Mapped[Gender] = mapped_column(
+        Enum(Gender, name="gender", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=False,
+    )
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
     email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     password: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone_number: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    role: Mapped[Role] = mapped_column(Enum(Role, name="role"), nullable=False)
+    role: Mapped[Role] = mapped_column(
+        Enum(Role, name="role", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=False,
+    )
     profile_picture_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     plan_end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
