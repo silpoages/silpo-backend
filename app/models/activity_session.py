@@ -12,7 +12,7 @@ class ActivitySession(Base):
     __tablename__ = "activity_session"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("activity.id"), primary_key=True
+        UUID(as_uuid=True), primary_key=True
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
