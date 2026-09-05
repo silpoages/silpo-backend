@@ -5,11 +5,12 @@ Revises: b618abecc235
 Create Date: 2026-09-05 17:12:33.385219
 
 """
+
 from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
-revision: str = 'bd5d0882b830'
-down_revision: str | None = 'b618abecc235'
+revision: str = "bd5d0882b830"
+down_revision: str | None = "b618abecc235"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

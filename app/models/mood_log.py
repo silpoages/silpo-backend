@@ -17,11 +17,8 @@ class MoodLog(Base):
         UUID(as_uuid=True), ForeignKey("user.id"), nullable=False
     )
     mood: Mapped[Mood] = mapped_column(
-        Enum(Mood, 
-            name="mood",
-            values_callable=lambda enum: [e.value for e in enum]
-            ),
-        nullable=False
+        Enum(Mood, name="mood", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=False,
     )
     posted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
