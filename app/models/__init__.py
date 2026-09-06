@@ -1,3 +1,3 @@
 from app.models.template import Template
-
-__all__ = ["Template"]
+from app.models.user import User
+__all__ = ["Template", "User"]

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
 # Importe a Base declarativa do seu projeto (ajuste o caminho se necessário)
-from app.db.base_class import Base 
+from app.db.base import Base 
 
 class User(Base):
     __tablename__ = "users"
