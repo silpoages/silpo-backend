@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.template import TemplateService
+from app.services.user import UserService
 
 DbSession = AsyncGenerator[AsyncSession, None]
 
@@ -13,3 +14,7 @@ get_session = get_db
 
 def get_template_service(db: AsyncSession = Depends(get_session)) -> TemplateService:
     return TemplateService(db)
+
+
+def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
+    return UserService(db)

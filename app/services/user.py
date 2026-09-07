@@ -1,21 +1,21 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
 
 class UserService:
-    
-    @staticmethod
-    async def delete_user(session: AsyncSession, user_id: uuid.UUID) -> bool:
-        result = await session.execute(select(User).where(User.id == user_id))
-        user = result.scalars().first()
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
 
-        if not user:
+    async def delete(self, user_id: uuid.UUID) -> bool:
+        user = await self.db.get(User, user_id)
+
+        if user is None:
             return False
 
         user.enabled = False
         user.deleted_at = datetime.now(timezone.utc)
-        await session.commit()
-        
+        await self.db.commit()
+
         return True
