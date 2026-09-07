@@ -12,9 +12,11 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
-    # Must bind all interfaces to be reachable in a container.
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
+
+    jwt_secret: str = "change-me"
+    jwt_algorithm: str = "HS256"
 
     @property
     def database_url(self) -> str:
