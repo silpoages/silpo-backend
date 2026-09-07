@@ -16,7 +16,7 @@ class MoodLogService:
         mood_log.user_id = user_id
         mood_log.mood = mood
         mood_log.posted_at = datetime.now()
-        
+
         self.db.add(mood_log)
         await self.db.commit()
         await self.db.refresh(mood_log)
