@@ -1,9 +1,13 @@
+import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import get_current_user_id
 from app.db.session import get_db
+from app.models.user import User
+from app.services.mood_log import MoodLogService
 from app.services.template import TemplateService
 
 DbSession = AsyncGenerator[AsyncSession, None]
@@ -13,3 +17,17 @@ get_session = get_db
 
 def get_template_service(db: AsyncSession = Depends(get_session)) -> TemplateService:
     return TemplateService(db)
+
+
+def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogService:
+    return MoodLogService(db)
+
+
+async def get_current_user(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_session),
+) -> User:
+    user = await db.get(User, user_id)
+    if user is None or not user.enabled or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
