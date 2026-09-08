@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,7 @@ class MoodLogService:
         mood_log = MoodLog()
         mood_log.user_id = user_id
         mood_log.mood = mood
-        mood_log.posted_at = datetime.now()
+        mood_log.posted_at = datetime.now(UTC)
 
         self.db.add(mood_log)
         await self.db.commit()
