@@ -19,7 +19,7 @@ _CREDENTIALS_EXCEPTION = HTTPException(
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
     try:
-        return jwt.decode(token, settings.jwt_secret_key)
+        return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError as e:
         raise _CREDENTIALS_EXCEPTION from e
 
