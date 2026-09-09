@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy import select, text
 
+from app.core.security import pwd_context
 from app.db.base import Base
 from app.db.session import async_session_maker
 from app.enums import Gender, Mood, Role
@@ -58,6 +59,7 @@ async def seed() -> None:
         paciente1_id = uuid.uuid4()
         paciente2_id = uuid.uuid4()
 
+        password = "12345678"
         users = [
             User(
                 id=admin_id,
@@ -65,7 +67,7 @@ async def seed() -> None:
                 gender=Gender.PREFER_NOT_TO_SAY,
                 birth_date=date(1992, 9, 17),
                 email="email@email.com",
-                password="12345678",
+                password=pwd_context.hash(password),
                 phone_number="+5551999825157",
                 role=Role.ADMIN,
             ),
@@ -75,7 +77,7 @@ async def seed() -> None:
                 gender=Gender.FEMALE,
                 birth_date=date(1985, 7, 22),
                 email="teixeira.gabriela@google.com",
-                password="12345678",
+                password=pwd_context.hash(password),
                 phone_number="+5551990010002",
                 role=Role.PROFESSIONAL,
             ),
@@ -85,7 +87,7 @@ async def seed() -> None:
                 gender=Gender.NON_BINARY,
                 birth_date=date(1999, 1, 30),
                 email="sol.andrade@terra.com",
-                password="12345678",
+                password=pwd_context.hash(password),
                 phone_number="+5551990010003",
                 role=Role.USER,
             ),
@@ -95,7 +97,7 @@ async def seed() -> None:
                 gender=Gender.MALE,
                 birth_date=date(1995, 11, 5),
                 email="rafael.tavares@uol.com",
-                password="12345678",
+                password=pwd_context.hash(password),
                 phone_number="+5551990010004",
                 role=Role.USER,
             ),
