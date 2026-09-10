@@ -12,6 +12,9 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
+    "pyjwt>=2.13.0",
+    "passlib>=1.7.4",
+    "email-validator>=2.3.0",
 ]
 
 [dependency-groups]
