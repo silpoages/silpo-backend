@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.template import TemplateService
-from app.services.user import AuthService
+from app.services.users import AuthService
 
 DbSession = AsyncGenerator[AsyncSession, None]
 
