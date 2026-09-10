@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy import Date, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.mood.log import MoodLog
+from app.models.mood_log import MoodLog
 
 
 class MoodLogService:
