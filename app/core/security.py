@@ -21,6 +21,11 @@ _CREDENTIALS_EXCEPTION = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+)
+
 
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
