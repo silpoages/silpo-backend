@@ -4,6 +4,7 @@ from typing import Any
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
@@ -13,6 +14,11 @@ _CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Credentials not validated",
     headers={"WWW-Authenticate": "Bearer"},
+)
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
 )
 
 
