@@ -66,7 +66,7 @@ class UserService:
     async def delete(self, user_id: uuid.UUID) -> bool:
         user = await self.db.get(User, user_id)
 
-        if user is None:
+        if not user.enabled:
             return False
 
         user.enabled = False
