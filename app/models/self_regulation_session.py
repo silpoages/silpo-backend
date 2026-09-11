@@ -17,3 +17,17 @@ class SelfRegulationSession(ActivitySession):
     bubbles_exploded: Mapped[int] = mapped_column(nullable=False)
 
     __mapper_args__ = {"polymorphic_identity": ActivityType.SELF_REGULATION}
+
+
+# Essas classes não criam tabelas
+# Servem apenas para que o SQLAlchemy consiga aplicar a herança em SelfRegulationSession via enum
+class BreathSession(ActivitySession):
+    __mapper_args__ = {
+        "polymorphic_identity": ActivityType.BREATH,
+    }
+
+
+class MeditationSession(ActivitySession):
+    __mapper_args__ = {
+        "polymorphic_identity": ActivityType.MEDITATION,
+    }
