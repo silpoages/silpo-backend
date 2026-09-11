@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_user_service
@@ -11,5 +13,5 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def login(
     payload: LoginInput,
     service: UserService = Depends(get_user_service),
-):
+) -> dict[str, Any]:
     return await service.login(payload.email, payload.password)

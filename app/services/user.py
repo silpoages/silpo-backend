@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 from fastapi import HTTPException, status
@@ -19,14 +20,14 @@ class UserService:
         self.db = db
 
     def _create_access_token(self, user_id: str) -> str:
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
+        expires_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
         payload = {
             "sub": user_id,
             "exp": expires_at,
         }
         return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    async def login(self, email: str, password: str) -> dict:
+    async def login(self, email: str, password: str) -> dict[str, Any]:
         normalized_email = email.strip().lower()
 
         result = await self.db.execute(select(User).where(User.email == normalized_email))
@@ -66,11 +67,11 @@ class UserService:
     async def delete(self, user_id: uuid.UUID) -> bool:
         user = await self.db.get(User, user_id)
 
-        if not user.enabled:
+        if user is None or not user.enabled:
             return False
 
         user.enabled = False
-        user.deleted_at = datetime.now(timezone.utc)
+        user.deleted_at = datetime.now(UTC)
         await self.db.commit()
 
         return True
