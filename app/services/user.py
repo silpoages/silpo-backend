@@ -52,10 +52,11 @@ class UserService:
             )
 
         token = self._create_access_token(str(user.id))
+        token_type = "bearer"  # nosec B105 - fixed auth scheme
 
         return {
             "access_token": token,
-            "token_type": "bearer",
+            "token_type": token_type,
             "user": {
                 "id": str(user.id),
                 "full_name": user.full_name,
