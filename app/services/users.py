@@ -1,31 +1,36 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
-import jwt
 from fastapi import HTTPException, status
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.security import create_access_token, pwd_context
 from app.models.user import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-settings = get_settings()
 
-
-class UserService:
-    def __init__(self, db: AsyncSession) -> None:
+class UsersService:
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _create_access_token(self, user_id: str) -> str:
-        expires_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
-        payload = {
-            "sub": user_id,
-            "exp": expires_at,
-        }
-        return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    async def update_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> User:
+        user = await self.db.get(User, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        user.full_name = payload.get("full_name", user.full_name)
+        user.birth_date = payload.get("birth_date", user.birth_date)
+        user.gender = payload.get("gender", user.gender)
+        user.email = user.email
+        user.daily_reminder_enabled = payload.get(
+            "daily_reminder_enabled", user.daily_reminder_enabled
+        )
+        user.onboarding_completed = True
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
 
     async def login(self, email: str, password: str) -> dict[str, Any]:
         normalized_email = email.strip().lower()
@@ -33,13 +38,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.email == normalized_email))
         user = result.scalar_one_or_none()
 
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials",
-            )
-
-        if not user.enabled or user.deleted_at is not None:
+        if user is None or not user.enabled or user.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials",
@@ -51,18 +50,12 @@ class UserService:
                 detail="Invalid credentials",
             )
 
-        token = self._create_access_token(str(user.id))
-        token_type = "bearer"  # nosec B105 - fixed auth scheme
+        token = create_access_token(str(user.id))
 
         return {
             "access_token": token,
-            "token_type": token_type,
-            "user": {
-                "id": str(user.id),
-                "full_name": user.full_name,
-                "email": user.email,
-                "role": user.role.value,
-            },
+            "token_type": "bearer",  # nosec B105 - fixed auth scheme
+            "user": user,
         }
 
     async def delete(self, user_id: uuid.UUID) -> bool:
