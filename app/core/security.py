@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -20,6 +21,13 @@ _CREDENTIALS_EXCEPTION = HTTPException(
     detail="Credentials not validated",
     headers={"WWW-Authenticate": "Bearer"},
 )
+
+
+def create_access_token(user_id: str) -> str:
+    settings = get_settings()
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"sub": user_id, "exp": expires_at}
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
