@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
+from app.services.emergency_contact import EmergencyContactService
 from app.services.mood_log import MoodLogService
 from app.services.users import UsersService
 
@@ -21,6 +22,12 @@ def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogServ
 
 def get_user_service(db: AsyncSession = Depends(get_session)) -> UsersService:
     return UsersService(db)
+
+
+def get_emergency_contact_service(
+    db: AsyncSession = Depends(get_session),
+) -> EmergencyContactService:
+    return EmergencyContactService(db)
 
 
 async def get_current_user(
