@@ -12,8 +12,9 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "pyjwt>=2.13.0",
     "passlib>=1.7.4",
+    "bcrypt>=4.0,<4.1",
+    "pyjwt>=2.14.0",
 ]
 
 [dependency-groups]
