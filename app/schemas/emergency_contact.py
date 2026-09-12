@@ -4,20 +4,21 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class EmergencyContactBase(BaseModel):
+class EmergencyContactCreate(BaseModel):
     full_name: str
-    nickname: str
     phone_number: str
     image_url: str | None = None
 
 
-class EmergencyContactCreate(EmergencyContactBase):
-    pass
-
-
-class EmergencyContactRead(EmergencyContactBase):
+class EmergencyContactRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    user_id: uuid.UUID
+    full_name: str
+    phone_number: str
+    image_url: str | None = None
     created_at: datetime
+
+
+class EmergencyContactListResponse(BaseModel):
+    contacts: list[EmergencyContactRead]
