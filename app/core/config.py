@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7 
+    jwt_expire_minutes: int = 60 * 24 * 7
 
     # Must bind all interfaces to be reachable in a container.
     api_host: str = "0.0.0.0"  # nosec B104

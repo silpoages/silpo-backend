@@ -1,4 +1,4 @@
-import uuid 
+import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import Depends, HTTPException, status
@@ -6,17 +6,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user_id
 from app.db.session import get_db
-from app.service.user import Users 
+from app.models.user import User
+from app.services.users import UsersService
 
 DbSession = AsyncGenerator[AsyncSession, None]
 
 get_session = get_db
 
-def get_user_service(db: AsyncSession = Depends(get_session)) -> Users:
-    return Users(db)
 
-async def get_current_user (user_id: uuid.UUID = Depends(get_current_user_id), db: AsyncSession = Depends(get_session)):
-    user = await db.get(Users, user_id) 
+def get_user_service(db: AsyncSession = Depends(get_session)) -> UsersService:
+    return UsersService(db)
+
+
+async def get_current_user(
+    user_id: uuid.UUID = Depends(get_current_user_id), db: AsyncSession = Depends(get_session)
+) -> User:
+    user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
