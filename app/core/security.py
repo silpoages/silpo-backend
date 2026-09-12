@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -15,11 +16,27 @@ pwd_context = CryptContext(
     deprecated="auto",
 )
 
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(password, hashed_password)
+
+
 _CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Credentials not validated",
     headers={"WWW-Authenticate": "Bearer"},
 )
+
+
+def create_access_token(user_id: str) -> str:
+    settings = get_settings()
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"sub": user_id, "exp": expires_at}
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict[str, Any]:

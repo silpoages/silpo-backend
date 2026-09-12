@@ -21,3 +21,7 @@ class UserRead(BaseModel):
     onboarding_completed: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserDeleteResponse(BaseModel):
+    message: str
