@@ -14,6 +14,12 @@ class UsersService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_active_user(self, user_id: uuid.UUID) -> User:
+        user = await self.db.get(User, user_id)
+        if user is None or not user.enabled or user.deleted_at is not None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+
     async def update_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> User:
         user = await self.db.get(User, user_id)
         if not user:
