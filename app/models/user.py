@@ -31,6 +31,7 @@ class User(Base):
     profile_picture_url: Mapped[str | None] = mapped_column(Text)
     plan_end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    daily_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
