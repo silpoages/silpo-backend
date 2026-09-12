@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import pwd_context
 from app.enums import Role
