@@ -1,5 +1,8 @@
-from collections.abc import AsyncGenerator, Iterator
+import uuid
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from typing import Any
 
+import jwt
 import pytest
 import pytest_asyncio
 from alembic.config import Config
@@ -10,7 +13,9 @@ from testcontainers.postgres import PostgresContainer
 from alembic import command
 from app.api.deps import get_session
 from app.core.config import get_settings
+from app.enums import Gender, Role
 from app.main import app
+from app.models.user import User
 
 
 @pytest.fixture(scope="session")
@@ -57,3 +62,37 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def create_user(
+    db_session: AsyncSession,
+) -> Callable[..., Awaitable[User]]:
+    async def _create(**overrides: Any) -> User:
+        defaults: dict[str, Any] = {
+            "id": uuid.uuid4(),
+            "email": f"{uuid.uuid4()}@example.com",
+            "password": "hashed-password",
+            "gender": Gender.PREFER_NOT_TO_SAY,
+            "role": Role.USER,
+        }
+        defaults.update(overrides)
+        user = User(**defaults)
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
+
+    return _create
+
+
+@pytest.fixture
+def auth_headers() -> Callable[[uuid.UUID], dict[str, str]]:
+    def _make(user_id: uuid.UUID) -> dict[str, str]:
+        settings = get_settings()
+        token = jwt.encode(
+            {"sub": str(user_id)}, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        )
+        return {"Authorization": f"Bearer {token}"}
+
+    return _make
