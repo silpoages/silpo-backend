@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.emergency_contact import EmergencyContact
@@ -14,7 +15,7 @@ class EmergencyContactService:
         contact = EmergencyContact(
             user_id=user_id,
             full_name=payload.full_name,
-            nickname=payload.nickname,
+            nickname=payload.full_name,
             phone_number=payload.phone_number,
             image_url=payload.image_url,
         )
@@ -22,3 +23,15 @@ class EmergencyContactService:
         await self.db.commit()
         await self.db.refresh(contact)
         return contact
+
+    async def list_for_user(self, user_id: uuid.UUID) -> list[EmergencyContact]:
+        result = await self.db.execute(
+            select(EmergencyContact)
+            .where(
+                EmergencyContact.user_id == user_id,
+                EmergencyContact.enabled.is_(True),
+                EmergencyContact.deleted_at.is_(None),
+            )
+            .order_by(EmergencyContact.created_at.desc())
+        )
+        return list(result.scalars().all())
