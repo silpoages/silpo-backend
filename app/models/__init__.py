@@ -13,5 +13,4 @@ from app.models.mood_log import MoodLog as MoodLog
 from app.models.professional_patient import ProfessionalPatient as ProfessionalPatient
 from app.models.self_regulation_activity import SelfRegulationActivity as SelfRegulationActivity
 from app.models.self_regulation_session import SelfRegulationSession as SelfRegulationSession
-from app.models.template import Template as Template
 from app.models.user import User as User
