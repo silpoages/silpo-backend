@@ -8,11 +8,10 @@ from sqlalchemy import select, text
 from app.core.security import pwd_context
 from app.db.base import Base
 from app.db.session import async_session_maker
-from app.enums import Gender, Mood, Role
+from app.enums import ActivityType, Gender, Mood, Role
 from app.models import (
     Achievement,
     AchievementLog,
-    Activity,
     ActivitySession,
     BreathActivity,
     DailyMessage,
@@ -39,10 +38,15 @@ async def clear_db(db) -> None:
 async def seed() -> None:
     async with async_session_maker() as db:
         if "--reset" in sys.argv:
-            print(
-                "\n\n Deletando os dados prévios do seu banco...\n Adicionando novos dados do seed"
-            )
+            print("\n\n Deletando os dados prévios do seu banco...")
             await clear_db(db)
+            print("\n Adicionando novos dados do seed")
+
+        if "--clear-db" in sys.argv:
+            await clear_db(db)
+            print("\n\n Banco limpo, sem semear (todos os dados foram apagados)\n\n")
+            return
+
         existente = await db.execute(select(User))
         if existente.scalars().first() is not None:
             print(
@@ -123,26 +127,27 @@ async def seed() -> None:
         self_regulation_activity_id = uuid.uuid4()
 
         activities = [
-            Activity(id=breath_activity_id, name="Respiração 4-7-8", max_duration_seconds=120),
-            Activity(
-                id=meditation_activity_id, name="Meditação transcendental", max_duration_seconds=300
-            ),
-            Activity(
-                id=self_regulation_activity_id, name="Estoura Bolhas", max_duration_seconds=60
-            ),
-        ]
-        activity_subtypes = [
             BreathActivity(
                 id=breath_activity_id,
+                name="Respiração 4-7-8",
+                max_duration_seconds=120,
                 inhale_seconds=4,
                 hold_seconds=7,
                 exhale_seconds=8,
                 repeat_count=4,
             ),
             MeditationActivity(
-                id=meditation_activity_id, audio_url="https://www.youtube.com/watch?v=2p8q1vs9K78"
+                id=meditation_activity_id,
+                name="Meditação transcendental",
+                max_duration_seconds=300,
+                audio_url="https://www.youtube.com/watch?v=2p8q1vs9K78",
             ),
-            SelfRegulationActivity(id=self_regulation_activity_id, bubble_spawn_interval_ms=800),
+            SelfRegulationActivity(
+                id=self_regulation_activity_id,
+                name="Estoura Bolhas",
+                max_duration_seconds=60,
+                bubble_spawn_interval_ms=800,
+            ),
         ]
 
         breath_session_id = uuid.uuid4()
@@ -154,26 +159,26 @@ async def seed() -> None:
                 id=breath_session_id,
                 user_id=paciente1_id,
                 activity_id=breath_activity_id,
+                type=ActivityType.BREATH,
                 time_spent_seconds=76,
-                posted_at=now,
-            ),
-            ActivitySession(
-                id=self_regulation_session_id,
-                user_id=paciente1_id,
-                activity_id=self_regulation_activity_id,
-                time_spent_seconds=45,
                 posted_at=now,
             ),
             ActivitySession(
                 id=meditation_session_id,
                 user_id=paciente2_id,
                 activity_id=meditation_activity_id,
+                type=ActivityType.MEDITATION,
                 time_spent_seconds=290,
                 posted_at=now,
             ),
-        ]
-        self_regulation_sessions = [
-            SelfRegulationSession(id=self_regulation_session_id, bubbles_exploded=23),
+            SelfRegulationSession(
+                id=self_regulation_session_id,
+                user_id=paciente1_id,
+                activity_id=self_regulation_activity_id,
+                time_spent_seconds=45,
+                posted_at=now,
+                bubbles_exploded=23,
+            ),
         ]
 
         achievement_id = uuid.uuid4()
@@ -228,20 +233,19 @@ async def seed() -> None:
 
         db.add_all(
             emergency_contacts
-            + activity_subtypes
             + activity_sessions
             + achievement_logs
             + good_practice_logs
             + mood_logs
             + professional_patients
         )
+
         await db.flush()
 
-        db.add_all(self_regulation_sessions + diary_entries)
+        db.add_all(diary_entries)
 
         await db.commit()
 
-        await db.commit()
         print("\n\n Seed executado com sucesso!\n\n")
 
 
