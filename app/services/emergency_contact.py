@@ -14,7 +14,7 @@ class EmergencyContactService:
         contact = EmergencyContact(
             user_id=user_id,
             full_name=payload.full_name,
-            nickname=payload.full_name,
+            nickname=payload.nickname,
             phone_number=payload.phone_number,
             image_url=payload.image_url,
         )
