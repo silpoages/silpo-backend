@@ -67,3 +67,19 @@ jobs:
           tags: silpo-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  mirror-gitlab:
+    name: Mirror to GitLab
+    runs-on: ubuntu-latest
+    needs: [lint, test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push main to GitLab mirror
+        env:
+          GITLAB_MIRROR_TOKEN: ${{ secrets.GITLAB_MIRROR_TOKEN }}
+        run: |
+          git push "https://oauth2:${GITLAB_MIRROR_TOKEN}@tools.ages.pucrs.br/2026-2/3jk-5jk/silpo/silpo-backend.git" HEAD:main
