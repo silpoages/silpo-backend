@@ -1,0 +1,22 @@
+import uuid
+
+from sqlalchemy import ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.enums import ActivityType
+from app.models.activity import Activity
+
+
+class BreathActivity(Activity):
+    __tablename__ = "breath_activity"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("activity.id"), primary_key=True
+    )
+    inhale_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    hold_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    exhale_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    repeat_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __mapper_args__ = {"polymorphic_identity": ActivityType.BREATH}
