@@ -8,7 +8,7 @@ npx prettier --check .
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-if [ "$BRANCH" != "develop" ]; then
+if [ "$BRANCH" != "develop" ] && ! git rev-parse -q --verify MERGE_HEAD > /dev/null; then
   git fetch origin develop --quiet 2>/dev/null || true
 
   if git show-ref --verify --quiet refs/remotes/origin/develop; then
