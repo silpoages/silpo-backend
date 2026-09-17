@@ -1,10 +1,12 @@
 set -e
 
-uv run ruff check .
-uv run ruff format --check .
+uv run ruff check --fix .
+uv run ruff format .
+npx prettier --write .
+git add -u
+
 uv run mypy app
 uv run bandit -q -r app
-npx prettier --check .
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
