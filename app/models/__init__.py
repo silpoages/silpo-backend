@@ -2,7 +2,7 @@ from app.models.achievement import Achievement as Achievement
 from app.models.achievement_log import AchievementLog as AchievementLog
 from app.models.activity import Activity as Activity
 from app.models.activity_session import ActivitySession as ActivitySession
-from app.models.breath_activity import BreathActivity as BreathActivity
+from app.models.breathing_activity import BreathingActivity as BreathingActivity
 from app.models.daily_message import DailyMessage as DailyMessage
 from app.models.diary_entry import DiaryEntry as DiaryEntry
 from app.models.emergency_contact import EmergencyContact as EmergencyContact
