@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, emergency_contacts, health, mood_logs, users
+from app.api.routes import auth, emergency_contacts, health, mood_logs, user
 
 app = FastAPI(title="Silpo Backend")
 
@@ -17,6 +17,6 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(mood_logs.router)
-app.include_router(users.router)
+app.include_router(user.router)
 app.include_router(auth.router)
 app.include_router(emergency_contacts.router)
