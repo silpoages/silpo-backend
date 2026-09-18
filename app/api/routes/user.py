@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_current_user, get_user_service
 from app.enums import Role
 from app.models.user import User
-from app.schemas.users import UserCreate, UserDeleteResponse, UserRead
-from app.services.users import UsersService
+from app.schemas.user import UserCreate, UserDeleteResponse, UserRead
+from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def update_user(
     payload: UserCreate,
     current_user: User = Depends(get_current_user),
-    service: UsersService = Depends(get_user_service),
+    service: UserService = Depends(get_user_service),
 ) -> User:
     return await service.update_user(user_id=current_user.id, payload=payload.model_dump())
 
@@ -24,7 +24,7 @@ async def update_user(
 async def delete_user(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
-    service: UsersService = Depends(get_user_service),
+    service: UserService = Depends(get_user_service),
 ) -> dict[str, str]:
     if current_user.role != Role.ADMIN:
         # Usuário autenticado pelo bearer token só pode apagar sua própria conta.

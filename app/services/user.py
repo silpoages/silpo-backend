@@ -12,7 +12,7 @@ from app.enums import Gender, Role
 from app.models.user import User
 
 
-class UsersService:
+class UserService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
