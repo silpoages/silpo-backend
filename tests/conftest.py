@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
@@ -16,6 +17,12 @@ from app.core.config import get_settings
 from app.enums import Gender, Role
 from app.main import app
 from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def mock_resend_send() -> Iterator[MagicMock]:
+    with patch("resend.Emails.send", return_value={"id": "test-email-id"}) as mock_send:
+        yield mock_send
 
 
 @pytest.fixture(scope="session")

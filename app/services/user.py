@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import create_access_token, hash_password, verify_password
 from app.enums import Gender, Role
 from app.models.user import User
+from app.services.email_confirmation import EmailConfirmationService
 
 
 class UserService:
@@ -46,6 +47,9 @@ class UserService:
                 ) from exc
             raise
         await self.db.refresh(user)
+
+        await EmailConfirmationService(self.db).create_and_send(user)
+
         return user
 
     async def update_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> User:

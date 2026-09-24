@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # "onboarding@resend.dev" works without domain verification; swap once a
     # sending domain is verified in Resend.
     email_from: str = "Silpo <onboarding@resend.dev>"
+    # Base URL used to build links sent in emails (e.g. the email confirmation link).
+    api_base_url: str = "http://localhost:8000"
 
     @property
     def database_url(self) -> str:
