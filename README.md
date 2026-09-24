@@ -18,7 +18,7 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 | Dependency manager  | uv                                       |
 | Linter / formatter  | Ruff                                     |
 | Git hooks           | Husky                                    |
-| Transactional email | Resend                                   |
+| Transactional email | Resend (Mailpit locally)                 |
 
 ## Project layout
 
@@ -92,9 +92,13 @@ Works identically on Windows, Linux, and macOS — no bind mounts, uses named vo
 docker compose up --build
 ```
 
-This starts PostgreSQL (waits for its healthcheck) and the API, running `alembic upgrade head`
-automatically before the server starts. The API is available at http://localhost:8000
-(docs at http://localhost:8000/docs).
+This starts PostgreSQL, [Mailpit](https://github.com/axllent/mailpit) (a local SMTP catcher) and
+the API, running `alembic upgrade head` automatically before the server starts. The API is
+available at http://localhost:8000 (docs at http://localhost:8000/docs).
+
+With `APP_ENV=local` (the `.env.example` default), emails are sent to Mailpit instead of Resend —
+no API key needed. View sent emails at http://localhost:8025. Set `APP_ENV=production` to send
+through Resend for real (requires `RESEND_API_KEY`).
 
 Stop and remove containers:
 
@@ -110,11 +114,11 @@ docker compose down -v
 
 ## Running locally (without Docker for the API)
 
-1. Start only PostgreSQL via Docker:
+1. Start PostgreSQL and Mailpit via Docker:
     ```bash
-    docker compose up -d db
+    docker compose up -d db mailpit
     ```
-2. Make sure `.env` has `POSTGRES_HOST=localhost`.
+2. Make sure `.env` has `POSTGRES_HOST=localhost` and `SMTP_HOST=localhost`.
 3. Apply migrations:
     ```bash
     uv run alembic upgrade head

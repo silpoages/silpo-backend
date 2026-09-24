@@ -16,6 +16,13 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '${SMTP_PORT:-1025}:1025'
+      - '8025:8025'
+
   api:
     build:
       context: .
@@ -33,11 +40,19 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-10080}
+      APP_ENV: ${APP_ENV:-production}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Silpo <onboarding@resend.dev>}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
     ports:
       - '${API_PORT:-8000}:8000'
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   postgres_data:
