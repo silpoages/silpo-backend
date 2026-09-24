@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.enums import Gender, Role
 from app.models.user import User
@@ -88,7 +89,7 @@ class UserService:
                 detail="Invalid credentials",
             )
 
-        if user.email_confirmed_at is None:
+        if get_settings().app_env != "local" and user.email_confirmed_at is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email not confirmed",

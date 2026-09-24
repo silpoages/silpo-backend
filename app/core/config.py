@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
+    # "local" skips the email-confirmation requirement on login, since local/dev setups
+    # don't have a verified sending domain yet to reliably deliver the confirmation email.
+    app_env: str = "production"
+
     resend_api_key: str = ""
     # "onboarding@resend.dev" works without domain verification; swap once a
     # sending domain is verified in Resend.

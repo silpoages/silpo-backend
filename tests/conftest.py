@@ -22,9 +22,14 @@ from app.models.user import User
 
 
 @pytest.fixture(autouse=True)
-def mock_resend_send() -> Iterator[MagicMock]:
+def mock_resend_send(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
+    # Force APP_ENV=production so tests don't depend on a developer's own .env (whose
+    # APP_ENV=local would skip the email-confirmation requirement on login).
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
     with patch("resend.Emails.send", return_value={"id": "test-email-id"}) as mock_send:
         yield mock_send
+    get_settings.cache_clear()
 
 
 def extract_confirmation_code(mock_send: MagicMock) -> str:

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from httpx import AsyncClient
 
+from app.core.config import get_settings
 from app.core.security import pwd_context
 from app.enums import Role
 from app.models.user import User
@@ -91,6 +92,24 @@ async def test_login_unconfirmed_email(
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_login_unconfirmed_email_allowed_when_app_env_local(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = await create_user(password=pwd_context.hash("correct-password"), email_confirmed_at=None)
+
+    monkeypatch.setenv("APP_ENV", "local")
+    get_settings.cache_clear()
+
+    response = await client.post(
+        "/auth/login", json={"email": user.email, "password": "correct-password"}
+    )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
