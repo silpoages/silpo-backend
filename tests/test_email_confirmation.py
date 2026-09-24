@@ -1,5 +1,4 @@
 import hashlib
-import re
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
@@ -11,13 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.email_confirmation_code import EmailConfirmationCode
 from app.models.user import User
-
-
-def _extract_code(mock_send: MagicMock) -> str:
-    html: str = mock_send.call_args[0][0]["html"]
-    match = re.search(r'href="[^"]*/auth/confirm-email/([^"]+)"', html)
-    assert match is not None
-    return match.group(1)
+from tests.conftest import extract_confirmation_code
 
 
 @pytest.mark.asyncio
@@ -45,7 +38,7 @@ async def test_confirm_email_success(
         json={"email": "confirm-success@example.com", "password": "correct-horse-battery"},
     )
     user_id = register_response.json()["id"]
-    code = _extract_code(mock_resend_send)
+    code = extract_confirmation_code(mock_resend_send)
 
     response = await client.get(f"/auth/confirm-email/{code}")
 
@@ -70,7 +63,7 @@ async def test_confirm_email_already_used(client: AsyncClient, mock_resend_send:
         "/auth/register",
         json={"email": "confirm-twice@example.com", "password": "correct-horse-battery"},
     )
-    code = _extract_code(mock_resend_send)
+    code = extract_confirmation_code(mock_resend_send)
 
     first = await client.get(f"/auth/confirm-email/{code}")
     second = await client.get(f"/auth/confirm-email/{code}")

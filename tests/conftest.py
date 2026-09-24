@@ -1,5 +1,7 @@
+import re
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -23,6 +25,13 @@ from app.models.user import User
 def mock_resend_send() -> Iterator[MagicMock]:
     with patch("resend.Emails.send", return_value={"id": "test-email-id"}) as mock_send:
         yield mock_send
+
+
+def extract_confirmation_code(mock_send: MagicMock) -> str:
+    html: str = mock_send.call_args[0][0]["html"]
+    match = re.search(r'href="[^"]*/auth/confirm-email/([^"]+)"', html)
+    assert match is not None
+    return match.group(1)
 
 
 @pytest.fixture(scope="session")
@@ -82,6 +91,7 @@ async def create_user(
             "password": "hashed-password",
             "gender": Gender.PREFER_NOT_TO_SAY,
             "role": Role.USER,
+            "email_confirmed_at": datetime.now(UTC),
         }
         defaults.update(overrides)
         user = User(**defaults)

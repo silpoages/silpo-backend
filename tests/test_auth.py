@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import AsyncClient
@@ -8,6 +9,7 @@ from httpx import AsyncClient
 from app.core.security import pwd_context
 from app.enums import Role
 from app.models.user import User
+from tests.conftest import extract_confirmation_code
 
 
 @pytest.mark.asyncio
@@ -76,6 +78,19 @@ async def test_login_deleted_user(
     )
 
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_unconfirmed_email(
+    client: AsyncClient, create_user: Callable[..., Awaitable[User]]
+) -> None:
+    user = await create_user(password=pwd_context.hash("correct-password"), email_confirmed_at=None)
+
+    response = await client.post(
+        "/auth/login", json={"email": user.email, "password": "correct-password"}
+    )
+
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -186,12 +201,18 @@ async def test_register_password_too_short(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_register_then_login_with_mixed_case_email(client: AsyncClient) -> None:
+async def test_register_then_login_with_mixed_case_email(
+    client: AsyncClient, mock_resend_send: MagicMock
+) -> None:
     register_response = await client.post(
         "/auth/register",
         json={"email": "Mixed.Case@Example.com", "password": "correct-horse-battery"},
     )
     assert register_response.status_code == 201
+
+    code = extract_confirmation_code(mock_resend_send)
+    confirm_response = await client.get(f"/auth/confirm-email/{code}")
+    assert confirm_response.status_code == 200
 
     login_response = await client.post(
         "/auth/login",
