@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.emergency_contact import EmergencyContactService
 from app.services.mood_log import MoodLogService
-from app.services.users import UsersService
+from app.services.user import UserService
 
 DbSession = AsyncGenerator[AsyncSession, None]
 
@@ -20,8 +20,8 @@ def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogServ
     return MoodLogService(db)
 
 
-def get_user_service(db: AsyncSession = Depends(get_session)) -> UsersService:
-    return UsersService(db)
+def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
+    return UserService(db)
 
 
 def get_emergency_contact_service(
@@ -32,6 +32,6 @@ def get_emergency_contact_service(
 
 async def get_current_user(
     user_id: uuid.UUID = Depends(get_current_user_id),
-    user_service: UsersService = Depends(get_user_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_user(user_id)
