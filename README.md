@@ -7,17 +7,18 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 
 ## Stack
 
-| Layer              | Technology                               |
-| ------------------ | ---------------------------------------- |
-| Web framework      | FastAPI                                  |
-| ORM                | SQLAlchemy 2.0 (async)                   |
-| Validation         | Pydantic v2                              |
-| Migrations         | Alembic (async)                          |
-| PostgreSQL driver  | asyncpg                                  |
-| Tests              | pytest + pytest-asyncio + testcontainers |
-| Dependency manager | uv                                       |
-| Linter / formatter | Ruff                                     |
-| Git hooks          | Husky                                    |
+| Layer               | Technology                               |
+| ------------------- | ---------------------------------------- |
+| Web framework       | FastAPI                                  |
+| ORM                 | SQLAlchemy 2.0 (async)                   |
+| Validation          | Pydantic v2                              |
+| Migrations          | Alembic (async)                          |
+| PostgreSQL driver   | asyncpg                                  |
+| Tests               | pytest + pytest-asyncio + testcontainers |
+| Dependency manager  | uv                                       |
+| Linter / formatter  | Ruff                                     |
+| Git hooks           | Husky                                    |
+| Transactional email | Resend                                   |
 
 ## Project layout
 
