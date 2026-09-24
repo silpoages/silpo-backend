@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
+    resend_api_key: str = ""
+    # "onboarding@resend.dev" works without domain verification; swap once a
+    # sending domain is verified in Resend.
+    email_from: str = "Silpo <onboarding@resend.dev>"
+
     @property
     def database_url(self) -> str:
         return (
