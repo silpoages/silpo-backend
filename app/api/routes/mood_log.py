@@ -18,11 +18,10 @@ async def create_mood_log(
     return await service.create(user_id=current_user.id, mood=payload.mood)
 
 
-@router.get("", response_model=MoodLogGetResponse)
+@router.get("", response_model=list[MoodLogGetResponse])
 async def get_mood_log(
     payload: MoodLogGet,
     current_user: User = Depends(get_current_user),
     service: MoodLogService = Depends(get_mood_log_service),
-) -> dict[str, list[MoodLog]]:
-    moods = await service.list_by_date(user_id=current_user.id, log_date=payload.date)
-    return {"moods": moods}
+) -> list[MoodLog]:
+    return await service.list_by_date(user_id=current_user.id, log_date=payload.date)
