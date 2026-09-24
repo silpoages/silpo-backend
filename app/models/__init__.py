@@ -5,6 +5,7 @@ from app.models.activity_session import ActivitySession as ActivitySession
 from app.models.breath_activity import BreathActivity as BreathActivity
 from app.models.daily_message import DailyMessage as DailyMessage
 from app.models.diary_entry import DiaryEntry as DiaryEntry
+from app.models.email_confirmation_code import EmailConfirmationCode as EmailConfirmationCode
 from app.models.emergency_contact import EmergencyContact as EmergencyContact
 from app.models.good_practice import GoodPractice as GoodPractice
 from app.models.good_practice_log import GoodPracticeLog as GoodPracticeLog

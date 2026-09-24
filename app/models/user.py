@@ -41,3 +41,4 @@ class User(Base):
         Boolean, nullable=False, server_default="false"
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

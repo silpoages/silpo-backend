@@ -7,9 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.enums import Gender, Role
 from app.models.user import User
+from app.services.email_confirmation import EmailConfirmationService
 
 
 class UserService:
@@ -46,6 +48,9 @@ class UserService:
                 ) from exc
             raise
         await self.db.refresh(user)
+
+        await EmailConfirmationService(self.db).create_and_send(user)
+
         return user
 
     async def update_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> User:
@@ -82,6 +87,12 @@ class UserService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials",
+            )
+
+        if get_settings().app_env != "local" and user.email_confirmed_at is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not confirmed",
             )
 
         token = create_access_token(str(user.id))
