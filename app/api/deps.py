@@ -8,6 +8,7 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
 from app.services.emergency_contact import EmergencyContactService
+from app.services.good_practice import GoodPracticeService
 from app.services.mood_log import MoodLogService
 from app.services.user import UserService
 
@@ -28,6 +29,10 @@ def get_emergency_contact_service(
     db: AsyncSession = Depends(get_session),
 ) -> EmergencyContactService:
     return EmergencyContactService(db)
+
+
+def get_good_practice_service(db: AsyncSession = Depends(get_session)) -> GoodPracticeService:
+    return GoodPracticeService(db)
 
 
 async def get_current_user(
