@@ -8,7 +8,10 @@ from app.enums import Environment
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_env: Environment = Environment.DEVELOPMENT
+    # Gates things that shouldn't be exposed/enforced outside of a real deployment: API docs
+    # (see app/main.py) and the login email-confirmation requirement (see app/services/user.py).
+    # Defaults to the stricter PRODUCTION so an unconfigured environment fails safe.
+    app_env: Environment = Environment.PRODUCTION
 
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
@@ -23,10 +26,6 @@ class Settings(BaseSettings):
     # Must bind all interfaces to be reachable in a container.
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
-
-    # "local" skips the email-confirmation requirement on login, since local/dev setups
-    # don't have a verified sending domain yet to reliably deliver the confirmation email.
-    app_env: str = "production"
 
     resend_api_key: str = ""
     # "onboarding@resend.dev" works without domain verification; swap once a

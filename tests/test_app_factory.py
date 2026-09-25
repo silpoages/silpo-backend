@@ -22,8 +22,8 @@ async def test_docs_disabled_in_production() -> None:
 
 
 @pytest.mark.asyncio
-async def test_docs_enabled_in_development() -> None:
-    app = create_app(Settings(app_env=Environment.DEVELOPMENT))
+async def test_docs_enabled_in_local() -> None:
+    app = create_app(Settings(app_env=Environment.LOCAL))
 
     assert app.docs_url == "/docs"
     assert app.redoc_url == "/redoc"
