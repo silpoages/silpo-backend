@@ -10,8 +10,9 @@ class Settings(BaseSettings):
 
     # Gates things that shouldn't be exposed/enforced outside of a real deployment: API docs
     # (see app/main.py) and the login email-confirmation requirement (see app/services/user.py).
-    # Defaults to the stricter PRODUCTION so an unconfigured environment fails safe.
-    app_env: Environment = Environment.PRODUCTION
+    # Defaults to LOCAL for a friction-free local/dev setup; real deployments (silpo-iac's
+    # ecs-service unit) must set APP_ENV=production explicitly.
+    app_env: Environment = Environment.LOCAL
 
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
