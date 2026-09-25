@@ -2,9 +2,13 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.enums import Environment
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    app_env: Environment = Environment.DEVELOPMENT
 
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
@@ -31,6 +35,10 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == Environment.PRODUCTION
 
 
 @lru_cache
