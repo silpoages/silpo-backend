@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -11,13 +11,19 @@ class MoodLogCreate(BaseModel):
 
 
 class MoodLogGet(BaseModel):
-    date: datetime
+    date: date
 
 
-class MoodLogGetResponse(BaseModel):
+class MoodLogItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    moods: list[MoodLogGet]
+    id: uuid.UUID
+    mood: Mood
+    posted_at: datetime
+
+
+class MoodLogListResponse(BaseModel):
+    items: list[MoodLogItem]
 
 
 class MoodLogRead(BaseModel):
