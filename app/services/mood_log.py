@@ -1,6 +1,7 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
+from sqlalchemy import Date, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import Mood
@@ -21,3 +22,14 @@ class MoodLogService:
         await self.db.commit()
         await self.db.refresh(mood_log)
         return mood_log
+
+    async def list_by_date(self, user_id: uuid.UUID, log_date: date) -> list[MoodLog]:
+        query = select(MoodLog).where(MoodLog.user_id == user_id)
+
+        if log_date:
+            query = query.where(cast(MoodLog.posted_at, Date) == log_date)
+
+        query = query.order_by(MoodLog.posted_at.desc())
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
