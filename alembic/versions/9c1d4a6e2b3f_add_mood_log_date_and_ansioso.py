@@ -37,7 +37,5 @@ def downgrade() -> None:
     # de um valor em uso não é suportado).
     op.execute("ALTER TYPE mood RENAME TO mood_old")
     op.execute("CREATE TYPE mood AS ENUM ('FELIZ', 'BEM', 'CANSADO', 'TRISTE', 'IRRITADO')")
-    op.execute(
-        "ALTER TABLE mood_log ALTER COLUMN mood TYPE mood USING mood::text::mood"
-    )
+    op.execute("ALTER TABLE mood_log ALTER COLUMN mood TYPE mood USING mood::text::mood")
     op.execute("DROP TYPE mood_old")
