@@ -23,10 +23,10 @@ class MoodLogService:
         await self.db.refresh(mood_log)
         return mood_log
 
-    async def list_by_date(self, user_id: uuid.UUID, log_date: date) -> list[MoodLog]:
+    async def list_by_date(self, user_id: uuid.UUID, log_date: date | None) -> list[MoodLog]:
         query = select(MoodLog).where(MoodLog.user_id == user_id)
 
-        if log_date:
+        if log_date is not None:
             query = query.where(cast(MoodLog.posted_at, Date) == log_date)
 
         query = query.order_by(MoodLog.posted_at.desc())
