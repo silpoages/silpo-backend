@@ -32,9 +32,7 @@ class ActivityService:
         )
         return list(query.scalars().all())
 
-    async def get_configuration(
-        self, activity_id: uuid.UUID
-    ) -> ActivityConfigurationRead | None:
+    async def get_configuration(self, activity_id: uuid.UUID) -> ActivityConfigurationRead | None:
         activity = await self.db.get(Activity, activity_id)
         if activity is None or not activity.enabled or activity.deleted_at is not None:
             return None

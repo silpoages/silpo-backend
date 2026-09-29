@@ -148,9 +148,7 @@ async def test_get_breathing_activity_configuration(
     db_session.add(activity)
     await db_session.commit()
 
-    response = await client.get(
-        f"/activities/{activity.id}", headers=auth_headers(user.id)
-    )
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 
     assert response.status_code == 200
     assert response.json() == {
@@ -174,9 +172,7 @@ async def test_get_activity_returns_404_when_not_found(
 ) -> None:
     user = await create_user()
 
-    response = await client.get(
-        f"/activities/{uuid.uuid4()}", headers=auth_headers(user.id)
-    )
+    response = await client.get(f"/activities/{uuid.uuid4()}", headers=auth_headers(user.id))
 
     assert response.status_code == 404
 
@@ -203,8 +199,6 @@ async def test_get_activity_returns_404_when_unavailable(
     db_session.add(activity)
     await db_session.commit()
 
-    response = await client.get(
-        f"/activities/{activity.id}", headers=auth_headers(user.id)
-    )
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 
     assert response.status_code == 404
