@@ -37,5 +37,6 @@ async def get_current_user(
 ) -> User:
     return await user_service.get_active_user(user_id)
 
+
 def get_activity_service(db: AsyncSession = Depends(get_session)) -> ActivityService:
     return ActivityService(db)
