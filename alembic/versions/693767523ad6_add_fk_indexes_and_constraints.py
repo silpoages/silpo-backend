@@ -1,7 +1,7 @@
 """add fk indexes and professional patient constraints
 
 Revision ID: 693767523ad6
-Revises: 387f2be3849c
+Revises: ba3ad1b001d7
 Create Date: 2026-09-14 22:05:35.239457
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "693767523ad6"
-down_revision: str | None = "387f2be3849c"
+down_revision: str | None = "ba3ad1b001d7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
