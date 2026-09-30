@@ -13,7 +13,7 @@ from app.models import (
     Achievement,
     AchievementLog,
     ActivitySession,
-    BreathActivity,
+    BreathingActivity,
     DailyMessage,
     DiaryEntry,
     EmergencyContact,
@@ -38,21 +38,24 @@ async def clear_db(db) -> None:
 async def seed() -> None:
     async with async_session_maker() as db:
         if "--reset" in sys.argv:
-            print("\n\n Deletando os dados prévios do seu banco...")
+            print("\n\n🗑️   Deletando os dados prévios do seu banco...")
             await clear_db(db)
-            print("\n Adicionando novos dados do seed")
+            print("\n🌿 Adicionando novos dados do seed")
 
         if "--clear-db" in sys.argv:
             await clear_db(db)
-            print("\n\n Banco limpo, sem semear (todos os dados foram apagados)\n\n")
+            print("\n\n✅   Banco limpo, sem semear (todos os dados foram apagados)\n\n")
             return
 
         existente = await db.execute(select(User))
+        linha3 = (
+            "\n\n⚠️  ATENÇÃO: O COMANDO ACIMA DELETA TODOS OS DADOS DO SEU BANCO! [CUIDADO] ⚠️\n\n"
+        )
         if existente.scalars().first() is not None:
             print(
-                "\n\n Seu banco já possui dados. Caso queira resetar utilize o comando:\n\n\n"
-                "          uv run scripts/seed.py --reset\n"
-                "\n\n ATENÇÃO: O COMANDO ACIMA DELETA TODOS OS DADOS DO SEU BANCO! [CUIDADO]\n\n"
+                "\n\n‼️  Seu banco já possui dados. Caso queira resetar utilize o comando:\n\n\n"
+                "          uv run scripts/seed.py --reset\n",
+                linha3,
             )
             return
 
@@ -122,13 +125,13 @@ async def seed() -> None:
             ),
         ]
 
-        breath_activity_id = uuid.uuid4()
+        breathing_activity_id = uuid.uuid4()
         meditation_activity_id = uuid.uuid4()
         self_regulation_activity_id = uuid.uuid4()
 
         activities = [
-            BreathActivity(
-                id=breath_activity_id,
+            BreathingActivity(
+                id=breathing_activity_id,
                 name="Respiração 4-7-8",
                 max_duration_seconds=120,
                 inhale_seconds=4,
@@ -150,16 +153,16 @@ async def seed() -> None:
             ),
         ]
 
-        breath_session_id = uuid.uuid4()
+        breathing_session_id = uuid.uuid4()
         self_regulation_session_id = uuid.uuid4()
         meditation_session_id = uuid.uuid4()
 
         activity_sessions = [
             ActivitySession(
-                id=breath_session_id,
+                id=breathing_session_id,
                 user_id=paciente1_id,
-                activity_id=breath_activity_id,
-                type=ActivityType.BREATH,
+                activity_id=breathing_activity_id,
+                type=ActivityType.BREATHING,
                 time_spent_seconds=76,
                 posted_at=now,
             ),
@@ -246,7 +249,7 @@ async def seed() -> None:
 
         await db.commit()
 
-        print("\n\n Seed executado com sucesso!\n\n")
+        print("\n\n✅ Seed executado com sucesso!\n\n")
 
 
 if __name__ == "__main__":
