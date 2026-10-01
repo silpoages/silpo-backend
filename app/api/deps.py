@@ -8,6 +8,7 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
 from app.services.activity import ActivityService
+from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
 from app.services.mood_log import MoodLogService
@@ -38,6 +39,12 @@ def get_emergency_contact_service(
 
 def get_good_practice_service(db: AsyncSession = Depends(get_session)) -> GoodPracticeService:
     return GoodPracticeService(db)
+
+
+def get_email_confirmation_service(
+    db: AsyncSession = Depends(get_session),
+) -> EmailConfirmationService:
+    return EmailConfirmationService(db)
 
 
 async def get_current_user(

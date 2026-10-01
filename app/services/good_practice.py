@@ -13,6 +13,25 @@ class GoodPracticeService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
+    async def list_enabled(self) -> list[GoodPractice]:
+        result = await self.db.execute(
+            select(GoodPractice)
+            .where(
+                GoodPractice.enabled.is_(True),
+                GoodPractice.deleted_at.is_(None),
+            )
+            .order_by(GoodPractice.id)
+        )
+        return list(result.scalars().all())
+
+    async def get_daily(self) -> GoodPractice | None:
+        practices = await self.list_enabled()
+        if not practices:
+            return None
+
+        index = datetime.now(UTC).date().toordinal() % len(practices)
+        return practices[index]
+
     async def get_enabled(self, good_practice_id: uuid.UUID) -> GoodPractice:
         result = await self.db.execute(
             select(GoodPractice).where(

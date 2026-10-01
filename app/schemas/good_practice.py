@@ -4,6 +4,18 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class GoodPracticeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    description: str
+
+
+class GoodPracticeListResponse(BaseModel):
+    items: list[GoodPracticeRead]
+
+
 class GoodPracticeCompletionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
