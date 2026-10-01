@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from httpx import AsyncClient
@@ -90,6 +90,67 @@ async def test_list_good_practices_daily_returns_single_stable_item(
     items_b = response_b.json()["items"]
     assert len(items_a) == 1
     assert items_a == items_b
+
+
+async def test_daily_completion_is_for_current_user_practice_and_utc_day(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    other_user = await create_user()
+    other_practices = [
+        await _create_good_practice(db_session),
+        await _create_good_practice(db_session),
+    ]
+    daily_url = "/good-practices?daily=true"
+
+    first = await client.get(daily_url, headers=auth_headers(user.id))
+    daily = first.json()["items"][0]
+    assert daily["completed_today"] is False
+
+    unrelated_practice = next(
+        practice for practice in other_practices if str(practice.id) != daily["id"]
+    )
+
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            GoodPracticeLog(
+                user_id=user.id,
+                good_practice_id=uuid.UUID(daily["id"]),
+                posted_at=now - timedelta(days=1),
+            ),
+            GoodPracticeLog(
+                user_id=other_user.id,
+                good_practice_id=uuid.UUID(daily["id"]),
+                posted_at=now,
+            ),
+            GoodPracticeLog(
+                user_id=user.id,
+                good_practice_id=unrelated_practice.id,
+                posted_at=now,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    before_completion = await client.get(daily_url, headers=auth_headers(user.id))
+    other_users_daily = await client.get(daily_url, headers=auth_headers(other_user.id))
+    assert before_completion.json()["items"][0]["completed_today"] is False
+    assert other_users_daily.json()["items"][0]["completed_today"] is True
+
+    completed = await client.post(
+        f"/good-practices/{daily['id']}/complete", headers=auth_headers(user.id)
+    )
+    assert completed.status_code == 201
+
+    after_completion = await client.get(daily_url, headers=auth_headers(user.id))
+    assert after_completion.json()["items"][0]["completed_today"] is True
+
+    all_practices = await client.get("/good-practices", headers=auth_headers(user.id))
+    assert all("completed_today" not in item for item in all_practices.json()["items"])
 
 
 async def test_complete_good_practice_success(

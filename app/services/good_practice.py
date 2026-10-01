@@ -1,5 +1,6 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
+from random import Random
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -29,8 +30,22 @@ class GoodPracticeService:
         if not practices:
             return None
 
-        index = datetime.now(UTC).date().toordinal() % len(practices)
-        return practices[index]
+        return Random(datetime.now(UTC).date().toordinal()).choice(practices)
+
+    async def is_completed_today(self, user_id: uuid.UUID, good_practice_id: uuid.UUID) -> bool:
+        start = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC)
+        end = start + timedelta(days=1)
+        result = await self.db.scalar(
+            select(GoodPracticeLog.id)
+            .where(
+                GoodPracticeLog.user_id == user_id,
+                GoodPracticeLog.good_practice_id == good_practice_id,
+                GoodPracticeLog.posted_at >= start,
+                GoodPracticeLog.posted_at < end,
+            )
+            .limit(1)
+        )
+        return result is not None
 
     async def get_enabled(self, good_practice_id: uuid.UUID) -> GoodPractice:
         result = await self.db.execute(
