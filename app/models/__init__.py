@@ -11,6 +11,7 @@ from app.models.good_practice import GoodPractice as GoodPractice
 from app.models.good_practice_log import GoodPracticeLog as GoodPracticeLog
 from app.models.meditation_activity import MeditationActivity as MeditationActivity
 from app.models.mood_log import MoodLog as MoodLog
+from app.models.password_reset_code import PasswordResetCode as PasswordResetCode
 from app.models.professional_patient import ProfessionalPatient as ProfessionalPatient
 from app.models.self_regulation_activity import SelfRegulationActivity as SelfRegulationActivity
 from app.models.self_regulation_session import SelfRegulationSession as SelfRegulationSession
