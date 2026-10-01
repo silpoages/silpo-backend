@@ -147,6 +147,7 @@ async def test_get_breathing_activity_configuration(
     )
     db_session.add(activity)
     await db_session.commit()
+    db_session.expunge_all()
 
     response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 
@@ -178,6 +179,7 @@ async def test_get_meditation_activity_configuration(
     )
     db_session.add(activity)
     await db_session.commit()
+    db_session.expunge_all()
 
     response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 
@@ -206,6 +208,7 @@ async def test_get_self_regulation_activity_configuration(
     )
     db_session.add(activity)
     await db_session.commit()
+    db_session.expunge_all()
 
     response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 
@@ -252,6 +255,7 @@ async def test_get_activity_returns_404_when_unavailable(
     )
     db_session.add(activity)
     await db_session.commit()
+    db_session.expunge_all()
 
     response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
 

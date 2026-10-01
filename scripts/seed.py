@@ -211,7 +211,12 @@ async def seed() -> None:
 
         mood_log_id = uuid.uuid4()
         mood_logs = [
-            MoodLog(id=mood_log_id, user_id=paciente1_id, mood=Mood.BEM),
+            MoodLog(
+                id=mood_log_id,
+                user_id=paciente1_id,
+                mood=Mood.BEM,
+                log_date=now.date(),
+            ),
         ]
         diary_entries = [
             DiaryEntry(
