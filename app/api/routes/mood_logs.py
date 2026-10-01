@@ -1,9 +1,11 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user, get_mood_log_service
 from app.models.mood_log import MoodLog
 from app.models.user import User
-from app.schemas.mood_log import MoodLogCreate, MoodLogRead
+from app.schemas.mood_log import MoodLogCreate, MoodLogListResponse, MoodLogRead
 from app.services.mood_log import MoodLogAlreadyLoggedError, MoodLogService
 
 router = APIRouter(prefix="/mood-logs", tags=["mood-logs"])
@@ -30,3 +32,13 @@ async def get_today_mood_log(
     service: MoodLogService = Depends(get_mood_log_service),
 ) -> MoodLog | None:
     return await service.get_today(current_user.id)
+
+
+@router.get("", response_model=MoodLogListResponse)
+async def get_mood_log(
+    date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    service: MoodLogService = Depends(get_mood_log_service),
+) -> MoodLogListResponse:
+    logs = await service.list_by_date(user_id=current_user.id, log_date=date)
+    return MoodLogListResponse(items=logs)

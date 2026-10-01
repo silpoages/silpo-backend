@@ -1,7 +1,7 @@
 """add mood_log.log_date unique constraint and ANSIOSO mood value
 
 Revision ID: 9c1d4a6e2b3f
-Revises: 387f2be3849c
+Revises: c67ea0b3afd1
 Create Date: 2026-09-27 00:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "9c1d4a6e2b3f"
-down_revision: str | None = "387f2be3849c"
+down_revision: str | None = "c67ea0b3afd1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
