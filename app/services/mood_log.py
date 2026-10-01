@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import Date, cast, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +51,7 @@ class MoodLogService:
         query = select(MoodLog).where(MoodLog.user_id == user_id)
 
         if log_date is not None:
-            query = query.where(cast(MoodLog.posted_at, Date) == log_date)
+            query = query.where(MoodLog.log_date == log_date)
 
         query = query.order_by(MoodLog.posted_at.desc())
 

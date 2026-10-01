@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -148,16 +148,19 @@ async def test_list_mood_logs_with_optional_date_filter(
     first = MoodLog(
         user_id=user.id,
         mood=Mood.FELIZ,
+        log_date=date(2026, 9, 3),
         posted_at=datetime(2026, 9, 3, 12, 5, tzinfo=UTC),
     )
     second = MoodLog(
         user_id=user.id,
         mood=Mood.TRISTE,
+        log_date=date(2026, 9, 4),
         posted_at=datetime(2026, 9, 4, 17, 42, tzinfo=UTC),
     )
     another_users_log = MoodLog(
         user_id=other_user.id,
         mood=Mood.CANSADO,
+        log_date=date(2026, 9, 3),
         posted_at=datetime(2026, 9, 3, 18, 0, tzinfo=UTC),
     )
     db_session.add_all([first, second, another_users_log])
