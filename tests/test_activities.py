@@ -1,5 +1,7 @@
 import uuid
+from datetime import UTC, datetime
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -107,8 +109,6 @@ async def test_list_activities_excludes_soft_deleted(
     create_user,
     auth_headers,
 ) -> None:
-    from datetime import UTC, datetime
-
     user = await create_user()
 
     deleted = MeditationActivity(
@@ -127,3 +127,78 @@ async def test_list_activities_excludes_soft_deleted(
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["items"]]
     assert str(deleted.id) not in ids
+
+
+async def test_get_breathing_activity_configuration(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user,
+    auth_headers,
+) -> None:
+    user = await create_user()
+    activity = BreathingActivity(
+        id=uuid.uuid4(),
+        name="Respiração 4-7-8",
+        max_duration_seconds=76,
+        inhale_seconds=4,
+        hold_seconds=7,
+        exhale_seconds=8,
+        repeat_count=4,
+    )
+    db_session.add(activity)
+    await db_session.commit()
+
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(activity.id),
+        "name": "Respiração 4-7-8",
+        "type": "breathing",
+        "max_duration_seconds": 76,
+        "breathing": {
+            "inhale_seconds": 4,
+            "hold_seconds": 7,
+            "exhale_seconds": 8,
+            "repeat_count": 4,
+        },
+    }
+
+
+async def test_get_activity_returns_404_when_not_found(
+    client: AsyncClient,
+    create_user,
+    auth_headers,
+) -> None:
+    user = await create_user()
+
+    response = await client.get(f"/activities/{uuid.uuid4()}", headers=auth_headers(user.id))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("disabled,deleted", [(True, False), (False, True)])
+async def test_get_activity_returns_404_when_unavailable(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user,
+    auth_headers,
+    disabled: bool,
+    deleted: bool,
+) -> None:
+    user = await create_user()
+    activity = BreathingActivity(
+        name="Unavailable activity",
+        enabled=not disabled,
+        deleted_at=datetime.now(UTC) if deleted else None,
+        inhale_seconds=4,
+        hold_seconds=7,
+        exhale_seconds=8,
+        repeat_count=4,
+    )
+    db_session.add(activity)
+    await db_session.commit()
+
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
+
+    assert response.status_code == 404
