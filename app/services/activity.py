@@ -3,7 +3,6 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import ActivityType
 from app.models.activity import Activity
 from app.models.breathing_activity import BreathingActivity
 from app.models.meditation_activity import MeditationActivity
@@ -30,47 +29,51 @@ class ActivityService:
         return list(query.scalars().all())
 
     async def get_configuration(self, activity_id: uuid.UUID) -> ActivityConfigurationRead | None:
-        activity = await self.db.get(Activity, activity_id)
-        if activity is None or not activity.enabled or activity.deleted_at is not None:
-            return None
-
-        if activity.type == ActivityType.BREATHING:
-            breathing = await self.db.get(BreathingActivity, activity_id)
-            if breathing is None:
-                return None
+        # Load the concrete subclass in one query. session.get(Activity) only
+        # fetches the parent row and then lazy-loads the child columns, which
+        # raises MissingGreenlet under asyncio.
+        breathing = await self._load_enabled(BreathingActivity, activity_id)
+        if isinstance(breathing, BreathingActivity):
             return BreathingActivityRead(
-                id=activity.id,
-                name=activity.name,
+                id=breathing.id,
+                name=breathing.name,
                 type="breathing",
-                max_duration_seconds=activity.max_duration_seconds,
+                max_duration_seconds=breathing.max_duration_seconds,
                 inhale_seconds=breathing.inhale_seconds,
                 hold_seconds=breathing.hold_seconds,
                 exhale_seconds=breathing.exhale_seconds,
                 repeat_count=breathing.repeat_count,
             )
 
-        if activity.type == ActivityType.MEDITATION:
-            meditation = await self.db.get(MeditationActivity, activity_id)
-            if meditation is None:
-                return None
+        meditation = await self._load_enabled(MeditationActivity, activity_id)
+        if isinstance(meditation, MeditationActivity):
             return MeditationActivityRead(
-                id=activity.id,
-                name=activity.name,
+                id=meditation.id,
+                name=meditation.name,
                 type="meditation",
-                max_duration_seconds=activity.max_duration_seconds,
+                max_duration_seconds=meditation.max_duration_seconds,
                 audio_url=meditation.audio_url,
             )
 
-        if activity.type == ActivityType.SELF_REGULATION:
-            self_regulation = await self.db.get(SelfRegulationActivity, activity_id)
-            if self_regulation is None:
-                return None
+        self_regulation = await self._load_enabled(SelfRegulationActivity, activity_id)
+        if isinstance(self_regulation, SelfRegulationActivity):
             return SelfRegulationActivityRead(
-                id=activity.id,
-                name=activity.name,
+                id=self_regulation.id,
+                name=self_regulation.name,
                 type="self_regulation",
-                max_duration_seconds=activity.max_duration_seconds,
+                max_duration_seconds=self_regulation.max_duration_seconds,
                 bubble_spawn_interval_ms=self_regulation.bubble_spawn_interval_ms,
             )
 
         return None
+
+    async def _load_enabled(
+        self,
+        model: type[BreathingActivity | MeditationActivity | SelfRegulationActivity],
+        activity_id: uuid.UUID,
+    ) -> Activity | None:
+        result = await self.db.execute(select(model).where(model.id == activity_id))
+        activity = result.scalar_one_or_none()
+        if activity is None or not activity.enabled or activity.deleted_at is not None:
+            return None
+        return activity
