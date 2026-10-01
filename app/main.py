@@ -5,6 +5,7 @@ from app.api.routes import (
     activities,
     auth,
     emergency_contacts,
+    good_practice,
     good_practices,
     health,
     mood_logs,
@@ -41,6 +42,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(emergency_contacts.router)
     app.include_router(activities.router)
     app.include_router(good_practices.router)
+    app.include_router(good_practice.router)
 
     return app
 
