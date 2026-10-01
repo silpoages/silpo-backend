@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -69,6 +69,74 @@ async def test_create_mood_log_with_invalid_mood(
 
 
 @pytest.mark.asyncio
+async def test_create_mood_log_with_ansioso(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+
+    response = await client.post(
+        "/mood-logs",
+        headers=auth_headers(user.id),
+        json={"mood": "ANSIOSO"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["mood"] == "ANSIOSO"
+
+
+@pytest.mark.asyncio
+async def test_create_mood_log_twice_same_day_conflicts(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    headers = auth_headers(user.id)
+
+    first = await client.post("/mood-logs", headers=headers, json={"mood": "FELIZ"})
+    assert first.status_code == 201
+
+    second = await client.post("/mood-logs", headers=headers, json={"mood": "TRISTE"})
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_get_today_mood_log_when_none_logged(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+
+    response = await client.get("/mood-logs/today", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+@pytest.mark.asyncio
+async def test_get_today_mood_log_after_creating(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    headers = auth_headers(user.id)
+
+    created = await client.post("/mood-logs", headers=headers, json={"mood": "BEM"})
+    assert created.status_code == 201
+
+    response = await client.get("/mood-logs/today", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mood"] == "BEM"
+    assert body["id"] == created.json()["id"]
+
+
+@pytest.mark.asyncio
 async def test_list_mood_logs_with_optional_date_filter(
     client: AsyncClient,
     db_session: AsyncSession,
@@ -80,16 +148,19 @@ async def test_list_mood_logs_with_optional_date_filter(
     first = MoodLog(
         user_id=user.id,
         mood=Mood.FELIZ,
+        log_date=date(2026, 9, 3),
         posted_at=datetime(2026, 9, 3, 12, 5, tzinfo=UTC),
     )
     second = MoodLog(
         user_id=user.id,
         mood=Mood.TRISTE,
+        log_date=date(2026, 9, 4),
         posted_at=datetime(2026, 9, 4, 17, 42, tzinfo=UTC),
     )
     another_users_log = MoodLog(
         user_id=other_user.id,
         mood=Mood.CANSADO,
+        log_date=date(2026, 9, 3),
         posted_at=datetime(2026, 9, 3, 18, 0, tzinfo=UTC),
     )
     db_session.add_all([first, second, another_users_log])
