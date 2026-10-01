@@ -1,6 +1,9 @@
+import re
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
@@ -16,6 +19,24 @@ from app.core.config import get_settings
 from app.enums import Gender, Role
 from app.main import app
 from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def mock_resend_send(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
+    # Force APP_ENV=production so tests don't depend on a developer's own .env (whose
+    # APP_ENV=local would skip the email-confirmation requirement on login).
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
+    with patch("resend.Emails.send", return_value={"id": "test-email-id"}) as mock_send:
+        yield mock_send
+    get_settings.cache_clear()
+
+
+def extract_confirmation_code(mock_send: MagicMock) -> str:
+    html: str = mock_send.call_args[0][0]["html"]
+    match = re.search(r'href="[^"]*/auth/confirm-email/([^"]+)"', html)
+    assert match is not None
+    return match.group(1)
 
 
 @pytest.fixture(scope="session")
@@ -75,6 +96,7 @@ async def create_user(
             "password": "hashed-password",
             "gender": Gender.PREFER_NOT_TO_SAY,
             "role": Role.USER,
+            "email_confirmed_at": datetime.now(UTC),
         }
         defaults.update(overrides)
         user = User(**defaults)
