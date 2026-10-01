@@ -38,3 +38,7 @@ class LoginOutput(BaseModel):
     access_token: str
     token_type: str
     user: LoginUser
+
+
+class ConfirmEmailOutput(BaseModel):
+    message: str
