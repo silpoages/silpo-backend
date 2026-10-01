@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -10,6 +11,8 @@ from app.core.config import get_settings
 from app.models.email_confirmation_code import EmailConfirmationCode
 from app.models.user import User
 from app.services.email import EmailService
+
+logger = logging.getLogger(__name__)
 
 CODE_TTL = timedelta(hours=24)
 
@@ -34,15 +37,23 @@ class EmailConfirmationService:
         await self.db.commit()
 
         confirm_url = f"{get_settings().api_base_url}/auth/confirm-email/{code}"
-        await self.email_service.send(
-            to=user.email,
-            subject="Confirme seu cadastro",
-            html=(
-                "<p>Bem-vindo(a) à Silpo!</p>"
-                "<p>Clique no botão abaixo para confirmar seu cadastro:</p>"
-                f'<p><a href="{confirm_url}">Confirmar cadastro</a></p>'
-            ),
-        )
+        try:
+            await self.email_service.send(
+                to=user.email,
+                subject="Confirme seu cadastro",
+                html=(
+                    "<p>Bem-vindo(a) à Silpo!</p>"
+                    "<p>Clique no botão abaixo para confirmar seu cadastro:</p>"
+                    f'<p><a href="{confirm_url}">Confirmar cadastro</a></p>'
+                ),
+            )
+        except Exception:
+            # The user and confirmation code are already committed. Failing the
+            # registration request here would 500 on the client while leaving
+            # behind a user that can never be confirmed (a retry would just hit
+            # the "email already registered" conflict). Log and let registration
+            # succeed instead; the user can request the email again later.
+            logger.exception("Failed to send confirmation email to %s", user.email)
 
     async def confirm(self, code: str) -> User:
         result = await self.db.execute(
