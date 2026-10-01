@@ -2,9 +2,17 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.enums import Environment
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Gates things that shouldn't be exposed/enforced outside of a real deployment: API docs
+    # (see app/main.py) and the login email-confirmation requirement (see app/services/user.py).
+    # Defaults to LOCAL for a friction-free local/dev setup; real deployments (silpo-iac's
+    # ecs-service unit) must set APP_ENV=production explicitly.
+    app_env: Environment = Environment.LOCAL
 
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
@@ -20,10 +28,6 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
-    # "local" skips the email-confirmation requirement on login, since local/dev setups
-    # don't have a verified sending domain yet to reliably deliver the confirmation email.
-    app_env: str = "production"
-
     resend_api_key: str = ""
     # "onboarding@resend.dev" works without domain verification; swap once a
     # sending domain is verified in Resend.
@@ -37,6 +41,10 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == Environment.PRODUCTION
 
 
 @lru_cache

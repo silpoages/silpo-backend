@@ -89,7 +89,7 @@ class UserService:
                 detail="Invalid credentials",
             )
 
-        if get_settings().app_env != "local" and user.email_confirmed_at is None:
+        if get_settings().is_production and user.email_confirmed_at is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email not confirmed",
