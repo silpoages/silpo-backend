@@ -13,10 +13,10 @@ class AchievementLog(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True
     )
     achievement_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("achievement.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("achievement.id"), nullable=False, index=True
     )
     achieved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
