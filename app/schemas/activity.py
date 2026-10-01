@@ -45,27 +45,24 @@ class BreathingConfiguration(BaseModel):
     repeat_count: int | None
 
 
-class BreathingActivityRead(ActivityConfigurationBase):
+class BreathingActivityRead(ActivityConfigurationBase, BreathingConfiguration):
     type: Literal["breathing"]
-    breathing: BreathingConfiguration
 
 
 class MeditationConfiguration(BaseModel):
     audio_url: str
 
 
-class MeditationActivityRead(ActivityConfigurationBase):
+class MeditationActivityRead(ActivityConfigurationBase, MeditationConfiguration):
     type: Literal["meditation"]
-    meditation: MeditationConfiguration
 
 
 class SelfRegulationConfiguration(BaseModel):
     bubble_spawn_interval_ms: int
 
 
-class SelfRegulationActivityRead(ActivityConfigurationBase):
+class SelfRegulationActivityRead(ActivityConfigurationBase, SelfRegulationConfiguration):
     type: Literal["self_regulation"]
-    self_regulation: SelfRegulationConfiguration
 
 
 ActivityConfigurationRead = Annotated[

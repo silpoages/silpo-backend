@@ -156,12 +156,66 @@ async def test_get_breathing_activity_configuration(
         "name": "Respiração 4-7-8",
         "type": "breathing",
         "max_duration_seconds": 76,
-        "breathing": {
-            "inhale_seconds": 4,
-            "hold_seconds": 7,
-            "exhale_seconds": 8,
-            "repeat_count": 4,
-        },
+        "inhale_seconds": 4,
+        "hold_seconds": 7,
+        "exhale_seconds": 8,
+        "repeat_count": 4,
+    }
+
+
+async def test_get_meditation_activity_configuration(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user,
+    auth_headers,
+) -> None:
+    user = await create_user()
+    activity = MeditationActivity(
+        id=uuid.uuid4(),
+        name="Meditação guiada",
+        max_duration_seconds=600,
+        audio_url="https://example.com/meditation.mp3",
+    )
+    db_session.add(activity)
+    await db_session.commit()
+
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(activity.id),
+        "name": "Meditação guiada",
+        "type": "meditation",
+        "max_duration_seconds": 600,
+        "audio_url": "https://example.com/meditation.mp3",
+    }
+
+
+async def test_get_self_regulation_activity_configuration(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user,
+    auth_headers,
+) -> None:
+    user = await create_user()
+    activity = SelfRegulationActivity(
+        id=uuid.uuid4(),
+        name="Bolhas",
+        max_duration_seconds=120,
+        bubble_spawn_interval_ms=500,
+    )
+    db_session.add(activity)
+    await db_session.commit()
+
+    response = await client.get(f"/activities/{activity.id}", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(activity.id),
+        "name": "Bolhas",
+        "type": "self_regulation",
+        "max_duration_seconds": 120,
+        "bubble_spawn_interval_ms": 500,
     }
 
 

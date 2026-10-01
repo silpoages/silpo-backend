@@ -11,11 +11,8 @@ from app.models.self_regulation_activity import SelfRegulationActivity
 from app.schemas.activity import (
     ActivityConfigurationRead,
     BreathingActivityRead,
-    BreathingConfiguration,
     MeditationActivityRead,
-    MeditationConfiguration,
     SelfRegulationActivityRead,
-    SelfRegulationConfiguration,
 )
 
 
@@ -46,12 +43,10 @@ class ActivityService:
                 name=activity.name,
                 type="breathing",
                 max_duration_seconds=activity.max_duration_seconds,
-                breathing=BreathingConfiguration(
-                    inhale_seconds=breathing.inhale_seconds,
-                    hold_seconds=breathing.hold_seconds,
-                    exhale_seconds=breathing.exhale_seconds,
-                    repeat_count=breathing.repeat_count,
-                ),
+                inhale_seconds=breathing.inhale_seconds,
+                hold_seconds=breathing.hold_seconds,
+                exhale_seconds=breathing.exhale_seconds,
+                repeat_count=breathing.repeat_count,
             )
 
         if activity.type == ActivityType.MEDITATION:
@@ -63,7 +58,7 @@ class ActivityService:
                 name=activity.name,
                 type="meditation",
                 max_duration_seconds=activity.max_duration_seconds,
-                meditation=MeditationConfiguration(audio_url=meditation.audio_url),
+                audio_url=meditation.audio_url,
             )
 
         if activity.type == ActivityType.SELF_REGULATION:
@@ -75,9 +70,7 @@ class ActivityService:
                 name=activity.name,
                 type="self_regulation",
                 max_duration_seconds=activity.max_duration_seconds,
-                self_regulation=SelfRegulationConfiguration(
-                    bubble_spawn_interval_ms=self_regulation.bubble_spawn_interval_ms
-                ),
+                bubble_spawn_interval_ms=self_regulation.bubble_spawn_interval_ms,
             )
 
         return None
