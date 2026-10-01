@@ -1,7 +1,7 @@
 """add email confirmation
 
 Revision ID: c67ea0b3afd1
-Revises: 387f2be3849c
+Revises: 693767523ad6
 Create Date: 2026-09-24 17:56:15.661118
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "c67ea0b3afd1"
-down_revision: str | None = "387f2be3849c"
+down_revision: str | None = "693767523ad6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
