@@ -64,7 +64,7 @@ class SelfRegulationConfiguration(BaseModel):
 
 
 class SelfRegulationActivityRead(ActivityConfigurationBase):
-    type: Literal["self_regulation"]
+    type: Literal["selfregulation"]
     self_regulation: SelfRegulationConfiguration
 
 

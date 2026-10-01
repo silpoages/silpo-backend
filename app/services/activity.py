@@ -73,7 +73,7 @@ class ActivityService:
             return SelfRegulationActivityRead(
                 id=activity.id,
                 name=activity.name,
-                type="self_regulation",
+                type="selfregulation",
                 max_duration_seconds=activity.max_duration_seconds,
                 self_regulation=SelfRegulationConfiguration(
                     bubble_spawn_interval_ms=self_regulation.bubble_spawn_interval_ms
