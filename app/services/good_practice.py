@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,5 +26,5 @@ class GoodPracticeService:
         if not practices:
             return None
 
-        index = date.today().toordinal() % len(practices)
+        index = datetime.now(UTC).date().toordinal() % len(practices)
         return practices[index]
