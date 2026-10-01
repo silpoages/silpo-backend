@@ -1,7 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import activities, auth, emergency_contacts, health, mood_logs, users
+from app.api.routes import (
+    activities,
+    auth,
+    emergency_contacts,
+    good_practices,
+    health,
+    mood_logs,
+    users,
+)
 from app.core.config import Settings, get_settings
 
 
@@ -32,6 +40,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(emergency_contacts.router)
     app.include_router(activities.router)
+    app.include_router(good_practices.router)
 
     return app
 
