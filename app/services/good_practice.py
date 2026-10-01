@@ -30,7 +30,8 @@ class GoodPracticeService:
         if not practices:
             return None
 
-        return Random(datetime.now(UTC).date().toordinal()).choice(practices)
+        # A seleção diária precisa ser reproduzível e não é usada para segurança.
+        return Random(datetime.now(UTC).date().toordinal()).choice(practices)  # nosec B311
 
     async def is_completed_today(self, user_id: uuid.UUID, good_practice_id: uuid.UUID) -> bool:
         start = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC)
