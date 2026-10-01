@@ -37,6 +37,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-Silpo <onboarding@resend.dev>}
       API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
     ports:
       - '${API_PORT:-8000}:8000'
     depends_on:

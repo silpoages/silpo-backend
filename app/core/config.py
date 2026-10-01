@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     email_from: str = "Silpo <onboarding@resend.dev>"
     # Base URL used to build links sent in emails (e.g. the email confirmation link).
     api_base_url: str = "http://localhost:8000"
+    # Base URL of the web app, used to build the password-reset link sent by email. The
+    # mobile app registers this same domain as a universal/app link, so one URL works for
+    # both web and mobile.
+    web_app_url: str = "http://localhost:3000"
 
     @property
     def database_url(self) -> str:

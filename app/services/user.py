@@ -67,6 +67,16 @@ class UserService:
         )
         user.onboarding_completed = True
 
+        new_password = payload.get("new_password")
+        if new_password is not None:
+            current_password = payload.get("current_password")
+            if not user.password or not verify_password(current_password or "", user.password):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Current password is incorrect",
+                )
+            user.password = hash_password(new_password)
+
         await self.db.commit()
         await self.db.refresh(user)
         return user

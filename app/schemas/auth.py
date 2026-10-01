@@ -42,3 +42,23 @@ class LoginOutput(BaseModel):
 
 class ConfirmEmailOutput(BaseModel):
     message: str
+
+
+class ForgotPasswordInput(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordOutput(BaseModel):
+    message: str
+
+
+class ResetPasswordVerifyOutput(BaseModel):
+    message: str
+
+
+class ResetPasswordInput(BaseModel):
+    new_password: str = Field(min_length=8)
+
+
+class ResetPasswordOutput(BaseModel):
+    message: str
