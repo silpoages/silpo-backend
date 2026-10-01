@@ -10,6 +10,7 @@ class GoodPracticeRead(BaseModel):
     id: uuid.UUID
     title: str
     description: str
+    completed_today: bool | None = None
 
 
 class GoodPracticeListResponse(BaseModel):
