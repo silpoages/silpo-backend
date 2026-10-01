@@ -1,9 +1,12 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_current_user, get_good_practice_service
 from app.models.good_practice import GoodPractice
+from app.models.good_practice_log import GoodPracticeLog
 from app.models.user import User
-from app.schemas.good_practice import GoodPracticeListResponse
+from app.schemas.good_practice import GoodPracticeCompletionRead, GoodPracticeListResponse
 from app.services.good_practice import GoodPracticeService
 
 router = APIRouter(prefix="/good-practices", tags=["good-practices"])
@@ -22,3 +25,16 @@ async def list_good_practices(
         items = await service.list_enabled()
 
     return {"items": items}
+
+
+@router.post(
+    "/{good_practice_id}/complete",
+    response_model=GoodPracticeCompletionRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def complete_good_practice(
+    good_practice_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: GoodPracticeService = Depends(get_good_practice_service),
+) -> GoodPracticeLog:
+    return await service.complete(user_id=current_user.id, good_practice_id=good_practice_id)
