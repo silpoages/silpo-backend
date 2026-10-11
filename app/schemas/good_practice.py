@@ -1,7 +1,23 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class GoodPracticeUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = Field(default=None, min_length=1)
+    enabled: bool | None = None
+
+    @model_validator(mode="after")
+    def _reject_explicit_null(self) -> "GoodPracticeUpdate":
+        # Campos são NOT NULL no banco: ausente = não altera, null = 422.
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class GoodPracticeRead(BaseModel):
@@ -10,6 +26,10 @@ class GoodPracticeRead(BaseModel):
     id: uuid.UUID
     title: str
     description: str
+
+
+class GoodPracticeAdminRead(GoodPracticeRead):
+    enabled: bool
 
 
 class GoodPracticeListResponse(BaseModel):

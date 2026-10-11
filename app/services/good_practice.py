@@ -1,12 +1,15 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import Role
 from app.models.good_practice import GoodPractice
 from app.models.good_practice_log import GoodPracticeLog
+from app.models.user import User
 
 
 class GoodPracticeService:
@@ -59,3 +62,34 @@ class GoodPracticeService:
         await self.db.commit()
         await self.db.refresh(good_practice_log)
         return good_practice_log
+
+    async def get_by_id(self, good_practice_id: uuid.UUID) -> GoodPractice:
+        result = await self.db.execute(
+            select(GoodPractice).where(
+                GoodPractice.id == good_practice_id,
+                GoodPractice.deleted_at.is_(None),
+            )
+        )
+        good_practice = result.scalar_one_or_none()
+        if good_practice is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Good practice not found"
+            )
+        return good_practice
+
+    async def update(
+        self,
+        current_user: User,
+        good_practice_id: uuid.UUID,
+        changes: dict[str, Any],
+    ) -> GoodPractice:
+        if current_user.role != Role.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        good_practice = await self.get_by_id(good_practice_id)
+        for field, value in changes.items():
+            setattr(good_practice, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(good_practice)
+        return good_practice
