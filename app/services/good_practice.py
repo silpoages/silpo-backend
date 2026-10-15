@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.good_practice import GoodPractice
@@ -23,6 +23,37 @@ class GoodPracticeService:
             .order_by(GoodPractice.id)
         )
         return list(result.scalars().all())
+
+    async def list_for_admin(
+        self,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+        enabled: bool | None = None,
+    ) -> tuple[list[GoodPractice], int]:
+        query = select(GoodPractice).where(GoodPractice.deleted_at.is_(None))
+
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    GoodPractice.title.ilike(pattern),
+                    GoodPractice.description.ilike(pattern),
+                )
+            )
+
+        if enabled is not None:
+            query = query.where(GoodPractice.enabled == enabled)
+
+        total = await self.db.scalar(select(func.count()).select_from(query.subquery()))
+
+        result = await self.db.execute(
+            query.order_by(GoodPractice.created_at.desc(), GoodPractice.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        return list(result.scalars().all()), total or 0
 
     async def get_daily(self) -> GoodPractice | None:
         practices = await self.list_enabled()

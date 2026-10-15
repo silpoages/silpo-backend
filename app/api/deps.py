@@ -1,11 +1,12 @@
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user_id
 from app.db.session import get_db
+from app.enums import Role
 from app.models.user import User
 from app.services.activity import ActivityService
 from app.services.email_confirmation import EmailConfirmationService
@@ -57,3 +58,9 @@ async def get_current_user(
     user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_user(user_id)
+
+
+async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return current_user

@@ -12,8 +12,19 @@ class GoodPracticeRead(BaseModel):
     description: str
 
 
+class GoodPracticeAdminRead(GoodPracticeRead):
+    enabled: bool
+
+
 class GoodPracticeListResponse(BaseModel):
     items: list[GoodPracticeRead]
+
+
+class GoodPracticeAdminListResponse(BaseModel):
+    items: list[GoodPracticeAdminRead]
+    total: int
+    page: int
+    page_size: int
 
 
 class GoodPracticeCompletionRead(BaseModel):
