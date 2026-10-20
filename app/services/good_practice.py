@@ -59,3 +59,20 @@ class GoodPracticeService:
         await self.db.commit()
         await self.db.refresh(good_practice_log)
         return good_practice_log
+
+    async def delete(self, good_practice_id: uuid.UUID) -> None:
+        result = await self.db.execute(
+            select(GoodPractice).where(
+                GoodPractice.id == good_practice_id,
+                GoodPractice.deleted_at.is_(None),
+            )
+        )
+        good_practice = result.scalar_one_or_none()
+        if good_practice is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Good practice not found"
+            )
+
+        good_practice.enabled = False
+        good_practice.deleted_at = datetime.now(UTC)
+        await self.db.commit()
