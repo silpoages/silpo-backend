@@ -1,12 +1,19 @@
 import uuid
+from datetime import UTC, datetime
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import ActivityType
 from app.models.activity import Activity
+from app.models.activity_session import ActivitySession
 from app.models.breathing_activity import BreathingActivity
 from app.models.meditation_activity import MeditationActivity
 from app.models.self_regulation_activity import SelfRegulationActivity
+from app.models.self_regulation_session import (
+    SelfRegulationSession,
+)
 from app.schemas.activity import (
     ActivityConfigurationRead,
     BreathingActivityRead,
@@ -66,6 +73,54 @@ class ActivityService:
             )
 
         return None
+
+    async def create_session(
+        self,
+        user_id: uuid.UUID,
+        activity_id: uuid.UUID,
+        time_spent_seconds: int,
+    ) -> ActivitySession | None:
+        result = await self.db.execute(
+            select(Activity).where(
+                Activity.id == activity_id,
+                Activity.enabled.is_(True),
+                Activity.deleted_at.is_(None),
+            )
+        )
+        activity = result.scalar_one_or_none()
+        if activity is None:
+            return None
+
+        # O máximo vem da atividade: o schema não o conhece, então a validação fica aqui.
+        max_duration = activity.max_duration_seconds
+        if max_duration is not None and time_spent_seconds > max_duration:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"time_spent_seconds must not exceed {max_duration}",
+            )
+
+        now = datetime.now(UTC)
+        if activity.type == ActivityType.SELF_REGULATION:
+            session: ActivitySession = SelfRegulationSession(
+                user_id=user_id,
+                activity_id=activity.id,
+                time_spent_seconds=time_spent_seconds,
+                posted_at=now,
+                bubbles_exploded=0,
+            )
+        else:
+            session = ActivitySession(
+                user_id=user_id,
+                activity_id=activity.id,
+                type=activity.type,
+                time_spent_seconds=time_spent_seconds,
+                posted_at=now,
+            )
+
+        self.db.add(session)
+        await self.db.commit()
+        await self.db.refresh(session)
+        return session
 
     async def _load_enabled(
         self,
