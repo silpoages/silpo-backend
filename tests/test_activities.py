@@ -571,6 +571,7 @@ async def test_create_activity_session_accepts_any_duration_without_max_duration
     assert data["type"] == "meditation"
     assert data["time_spent_seconds"] == 100_000
 
+
 async def test_created_sessions_are_countable_per_user(
     client: AsyncClient,
     db_session: AsyncSession,
