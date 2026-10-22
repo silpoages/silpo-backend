@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.activity_session import ActivitySession
@@ -312,6 +312,7 @@ async def test_create_activity_session_persists_and_returns_201(
         select(ActivitySession).where(ActivitySession.id == uuid.UUID(data["session_id"]))
     )
     saved_session = result.scalar_one()
+    assert datetime.fromisoformat(data["completed_at"]) == saved_session.posted_at
     assert saved_session.user_id == user.id
     assert saved_session.activity_id == activity.id
     assert saved_session.time_spent_seconds == 120
@@ -569,3 +570,58 @@ async def test_create_activity_session_accepts_any_duration_without_max_duration
     data = response.json()
     assert data["type"] == "meditation"
     assert data["time_spent_seconds"] == 100_000
+
+async def test_created_sessions_are_countable_per_user(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user,
+    auth_headers,
+) -> None:
+    user = await create_user()
+    other_user = await create_user()
+    breathing = BreathingActivity(
+        name="Respiração",
+        max_duration_seconds=120,
+        inhale_seconds=4,
+        hold_seconds=4,
+        exhale_seconds=4,
+        repeat_count=4,
+    )
+    meditation = MeditationActivity(
+        name="Meditação",
+        max_duration_seconds=600,
+        audio_url="https://example.com/audio.mp3",
+    )
+    self_regulation = SelfRegulationActivity(
+        name="Estoura Bolhas",
+        max_duration_seconds=60,
+        bubble_spawn_interval_ms=500,
+    )
+    db_session.add_all([breathing, meditation, self_regulation])
+    await db_session.commit()
+
+    for activity in (breathing, meditation, self_regulation):
+        response = await client.post(
+            f"/activities/{activity.id}/sessions",
+            json={"time_spent_seconds": 30},
+            headers=auth_headers(user.id),
+        )
+        assert response.status_code == 201
+
+    other_response = await client.post(
+        f"/activities/{breathing.id}/sessions",
+        json={"time_spent_seconds": 30},
+        headers=auth_headers(other_user.id),
+    )
+    assert other_response.status_code == 201
+
+    async def count_sessions(user_id: uuid.UUID) -> int:
+        result = await db_session.execute(
+            select(func.count())
+            .select_from(ActivitySession)
+            .where(ActivitySession.user_id == user_id)
+        )
+        return result.scalar_one()
+
+    assert await count_sessions(user.id) == 3
+    assert await count_sessions(other_user.id) == 1
