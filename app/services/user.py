@@ -24,6 +24,12 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         return user
 
+    async def get_active_admin(self, user_id: uuid.UUID) -> User:
+        user = await self.get_active_user(user_id)
+        if user.role != Role.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        return user
+
     async def register(self, email: str, password: str) -> User:
         user = User(
             email=email.strip().lower(),

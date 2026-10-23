@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.api.deps import get_user_service, require_admin
+from app.api.deps import get_current_admin, get_user_service
 from app.enums import Role
 from app.models.user import User
 from app.schemas.user import AdminUserListResponse, AdminUserRead
@@ -19,7 +19,7 @@ async def list_users(
     search: str | None = Query(None),
     role: Role | None = Query(None),
     enabled: bool | None = Query(None),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(get_current_admin),
     service: UserService = Depends(get_user_service),
 ) -> dict[str, Any]:
     items, total = await service.list_users(
@@ -31,7 +31,7 @@ async def list_users(
 @router.get("/{user_id}", response_model=AdminUserRead, status_code=status.HTTP_200_OK)
 async def get_user(
     user_id: uuid.UUID,
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(get_current_admin),
     service: UserService = Depends(get_user_service),
 ) -> User:
     return await service.get_user_by_id(user_id)

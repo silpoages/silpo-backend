@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     activities,
+    admin_good_practices,
     admin_users,
     auth,
     emergency_contacts,
@@ -42,6 +43,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(emergency_contacts.router)
     app.include_router(activities.router)
     app.include_router(good_practices.router)
+    app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
 
     return app
