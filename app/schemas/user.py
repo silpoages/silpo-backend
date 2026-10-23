@@ -1,8 +1,9 @@
-from datetime import date
+import uuid
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.enums import Gender
+from app.enums import Gender, Role
 
 
 class UserCreate(BaseModel):
@@ -35,3 +36,24 @@ class UserRead(BaseModel):
 
 class UserDeleteResponse(BaseModel):
     message: str
+
+
+class AdminUserRead(BaseModel):
+    id: uuid.UUID
+    full_name: str | None
+    email: str
+    birth_date: date | None
+    gender: Gender
+    role: Role
+    enabled: bool
+    onboarding_completed: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserRead]
+    total: int
+    page: int
+    page_size: int
