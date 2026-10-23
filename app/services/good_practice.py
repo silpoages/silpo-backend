@@ -130,3 +130,9 @@ class GoodPracticeService:
         await self.db.commit()
         await self.db.refresh(good_practice)
         return good_practice
+
+    async def delete(self, good_practice_id: uuid.UUID) -> None:
+        good_practice = await self.get_by_id(good_practice_id)
+        good_practice.enabled = False
+        good_practice.deleted_at = datetime.now(UTC)
+        await self.db.commit()

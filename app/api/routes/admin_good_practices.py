@@ -43,3 +43,12 @@ async def update_good_practice(
     service: GoodPracticeService = Depends(get_good_practice_service),
 ) -> GoodPractice:
     return await service.update(good_practice_id, payload.model_dump(exclude_unset=True))
+
+
+@router.delete("/{good_practice_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_good_practice(
+    good_practice_id: uuid.UUID,
+    current_admin: User = Depends(get_current_admin),
+    service: GoodPracticeService = Depends(get_good_practice_service),
+) -> None:
+    await service.delete(good_practice_id)
