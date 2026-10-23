@@ -13,8 +13,19 @@ class GoodPracticeRead(BaseModel):
     completed_today: bool | None = None
 
 
+class GoodPracticeAdminRead(GoodPracticeRead):
+    enabled: bool
+
+
 class GoodPracticeListResponse(BaseModel):
     items: list[GoodPracticeRead]
+
+
+class GoodPracticeAdminListResponse(BaseModel):
+    items: list[GoodPracticeAdminRead]
+    total: int
+    page: int
+    page_size: int
 
 
 class GoodPracticeCompletionRead(BaseModel):
