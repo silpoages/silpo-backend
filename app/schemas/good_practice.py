@@ -26,14 +26,29 @@ class GoodPracticeRead(BaseModel):
     id: uuid.UUID
     title: str
     description: str
+    completed_today: bool | None = None
 
 
-class GoodPracticeAdminRead(GoodPracticeRead):
+class GoodPracticeAdminRead(BaseModel):
+    """Visão do admin: sem `completed_today`, que só faz sentido para o usuário do app."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    description: str
     enabled: bool
 
 
 class GoodPracticeListResponse(BaseModel):
     items: list[GoodPracticeRead]
+
+
+class GoodPracticeAdminListResponse(BaseModel):
+    items: list[GoodPracticeAdminRead]
+    total: int
+    page: int
+    page_size: int
 
 
 class GoodPracticeCompletionRead(BaseModel):

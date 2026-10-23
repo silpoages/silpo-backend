@@ -57,3 +57,10 @@ async def get_current_user(
     user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_user(user_id)
+
+
+async def get_current_admin(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    user_service: UserService = Depends(get_user_service),
+) -> User:
+    return await user_service.get_active_admin(user_id)
