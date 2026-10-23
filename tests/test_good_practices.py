@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -93,6 +93,67 @@ async def test_list_good_practices_daily_returns_single_stable_item(
     items_b = response_b.json()["items"]
     assert len(items_a) == 1
     assert items_a == items_b
+
+
+async def test_daily_completion_is_for_current_user_practice_and_utc_day(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    other_user = await create_user()
+    other_practices = [
+        await _create_good_practice(db_session),
+        await _create_good_practice(db_session),
+    ]
+    daily_url = "/good-practices?daily=true"
+
+    first = await client.get(daily_url, headers=auth_headers(user.id))
+    daily = first.json()["items"][0]
+    assert daily["completed_today"] is False
+
+    unrelated_practice = next(
+        practice for practice in other_practices if str(practice.id) != daily["id"]
+    )
+
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            GoodPracticeLog(
+                user_id=user.id,
+                good_practice_id=uuid.UUID(daily["id"]),
+                posted_at=now - timedelta(days=1),
+            ),
+            GoodPracticeLog(
+                user_id=other_user.id,
+                good_practice_id=uuid.UUID(daily["id"]),
+                posted_at=now,
+            ),
+            GoodPracticeLog(
+                user_id=user.id,
+                good_practice_id=unrelated_practice.id,
+                posted_at=now,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    before_completion = await client.get(daily_url, headers=auth_headers(user.id))
+    other_users_daily = await client.get(daily_url, headers=auth_headers(other_user.id))
+    assert before_completion.json()["items"][0]["completed_today"] is False
+    assert other_users_daily.json()["items"][0]["completed_today"] is True
+
+    completed = await client.post(
+        f"/good-practices/{daily['id']}/complete", headers=auth_headers(user.id)
+    )
+    assert completed.status_code == 201
+
+    after_completion = await client.get(daily_url, headers=auth_headers(user.id))
+    assert after_completion.json()["items"][0]["completed_today"] is True
+
+    all_practices = await client.get("/good-practices", headers=auth_headers(user.id))
+    assert all("completed_today" not in item for item in all_practices.json()["items"])
 
 
 async def test_complete_good_practice_success(
@@ -242,6 +303,260 @@ async def test_complete_good_practice_with_unknown_user(
     )
 
     assert response.status_code == 401
+
+
+async def test_update_good_practice_requires_authentication(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}", json={"title": "Novo"}
+    )
+
+    assert response.status_code in (401, 403)
+
+
+async def test_update_good_practice_forbidden_for_non_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(user.id),
+        json={"title": "Novo título"},
+    )
+
+    assert response.status_code == 403
+    await db_session.refresh(good_practice)
+    assert good_practice.title == "Beber água"
+
+
+async def test_update_good_practice_forbidden_for_non_admin_even_when_not_found(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+
+    response = await client.patch(
+        f"/admin/good-practices/{uuid.uuid4()}",
+        headers=auth_headers(user.id),
+        json={"title": "Novo título"},
+    )
+
+    assert response.status_code == 403
+
+
+async def test_update_good_practice_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"title": "Título atualizado", "enabled": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(good_practice.id),
+        "title": "Título atualizado",
+        "description": "Beba um copo de água agora.",
+        "enabled": False,
+    }
+
+
+async def test_update_good_practice_keeps_fields_not_sent(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"title": "Só o título"},
+    )
+
+    assert response.status_code == 200
+    await db_session.refresh(good_practice)
+    assert good_practice.title == "Só o título"
+    assert good_practice.description == "Beba um copo de água agora."
+    assert good_practice.enabled is True
+
+
+async def test_update_good_practice_can_reenable_disabled(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session, enabled=False)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"enabled": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["enabled"] is True
+
+
+async def test_update_good_practice_not_found(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.patch(
+        f"/admin/good-practices/{uuid.uuid4()}",
+        headers=auth_headers(admin.id),
+        json={"title": "Novo título"},
+    )
+
+    assert response.status_code == 404
+
+
+async def test_update_good_practice_deleted_returns_404(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session, deleted_at=datetime.now(UTC))
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"title": "Novo título"},
+    )
+
+    assert response.status_code == 404
+
+
+async def test_update_good_practice_invalid_id(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.patch(
+        "/admin/good-practices/not-a-uuid",
+        headers=auth_headers(admin.id),
+        json={"title": "Novo título"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_update_good_practice_rejects_explicit_null(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"title": None},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_update_good_practice_rejects_unknown_field(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    good_practice = await _create_good_practice(db_session)
+
+    response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"deleted_at": "2026-01-01T00:00:00Z"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_disabled_good_practice_is_hidden_from_mobile_endpoints(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user()
+    good_practice = await _create_good_practice(db_session)
+
+    patch_response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"enabled": False},
+    )
+    assert patch_response.status_code == 200
+
+    list_response = await client.get("/good-practices", headers=auth_headers(user.id))
+    assert str(good_practice.id) not in [item["id"] for item in list_response.json()["items"]]
+
+    complete_response = await client.post(
+        f"/good-practices/{good_practice.id}/complete", headers=auth_headers(user.id)
+    )
+    assert complete_response.status_code == 404
+
+
+async def test_disabling_good_practice_keeps_previous_logs(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user()
+    good_practice = await _create_good_practice(db_session)
+
+    complete_response = await client.post(
+        f"/good-practices/{good_practice.id}/complete", headers=auth_headers(user.id)
+    )
+    assert complete_response.status_code == 201
+    log_id = uuid.UUID(complete_response.json()["id"])
+
+    patch_response = await client.patch(
+        f"/admin/good-practices/{good_practice.id}",
+        headers=auth_headers(admin.id),
+        json={"enabled": False},
+    )
+    assert patch_response.status_code == 200
+
+    result = await db_session.execute(select(GoodPracticeLog).where(GoodPracticeLog.id == log_id))
+    log = result.scalar_one()
+    assert log.good_practice_id == good_practice.id
+    assert log.user_id == user.id
 
 
 async def test_create_good_practice_as_admin(

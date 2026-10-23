@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,12 @@ class UserService:
         user = await self.db.get(User, user_id)
         if user is None or not user.enabled or user.deleted_at is not None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+
+    async def get_active_admin(self, user_id: uuid.UUID) -> User:
+        user = await self.get_active_user(user_id)
+        if user.role != Role.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
         return user
 
     async def register(self, email: str, password: str) -> User:
@@ -124,3 +130,36 @@ class UserService:
         await self.db.commit()
 
         return True
+
+    async def list_users(
+        self,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+        role: Role | None = None,
+        enabled: bool | None = None,
+    ) -> tuple[list[User], int]:
+        query = select(User)
+
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            query = query.where(or_(User.full_name.ilike(pattern), User.email.ilike(pattern)))
+        if role is not None:
+            query = query.where(User.role == role)
+        if enabled is not None:
+            query = query.where(User.enabled == enabled)
+
+        total = await self.db.scalar(select(func.count()).select_from(query.subquery()))
+
+        result = await self.db.execute(
+            query.order_by(User.created_at.desc(), User.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), total or 0
+
+    async def get_user_by_id(self, user_id: uuid.UUID) -> User:
+        user = await self.db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        return user
