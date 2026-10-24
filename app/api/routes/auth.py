@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, status
 
 from app.api.deps import (
+    get_current_user,
     get_email_confirmation_service,
     get_password_reset_service,
     get_user_service,
@@ -14,6 +15,7 @@ from app.schemas.auth import (
     ForgotPasswordOutput,
     LoginInput,
     LoginOutput,
+    LoginUser,
     RegisterInput,
     RegisterOutput,
     ResetPasswordInput,
@@ -41,6 +43,12 @@ async def login(
     service: UserService = Depends(get_user_service),
 ) -> dict[str, Any]:
     return await service.login(payload.email, payload.password)
+
+
+@router.get("/me", response_model=LoginUser, status_code=status.HTTP_200_OK)
+async def read_current_user(current_user: User = Depends(get_current_user)) -> User:
+    # get_current_user já devolve 401 para token inválido/expirado e conta desativada.
+    return current_user
 
 
 @router.get(
