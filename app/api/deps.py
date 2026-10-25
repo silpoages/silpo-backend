@@ -11,6 +11,7 @@ from app.services.activity import ActivityService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
+from app.services.journey import JourneyService
 from app.services.mood_log import MoodLogService
 from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
@@ -40,6 +41,10 @@ def get_emergency_contact_service(
 
 def get_good_practice_service(db: AsyncSession = Depends(get_session)) -> GoodPracticeService:
     return GoodPracticeService(db)
+
+
+def get_journey_service(db: AsyncSession = Depends(get_session)) -> JourneyService:
+    return JourneyService(db)
 
 
 def get_email_confirmation_service(
