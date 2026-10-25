@@ -20,6 +20,15 @@ class GoodPracticeUpdate(BaseModel):
         return self
 
 
+class GoodPracticeCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    # min_length roda depois do strip, então título ou descrição só com espaço vira 422.
+    title: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    enabled: bool = True
+
+
 class GoodPracticeRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

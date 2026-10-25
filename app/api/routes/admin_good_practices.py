@@ -9,11 +9,21 @@ from app.models.user import User
 from app.schemas.good_practice import (
     GoodPracticeAdminListResponse,
     GoodPracticeAdminRead,
+    GoodPracticeCreate,
     GoodPracticeUpdate,
 )
 from app.services.good_practice import GoodPracticeService
 
 router = APIRouter(prefix="/admin/good-practices", tags=["admin-good-practices"])
+
+
+@router.post("", response_model=GoodPracticeAdminRead, status_code=status.HTTP_201_CREATED)
+async def create_good_practice(
+    payload: GoodPracticeCreate,
+    current_admin: User = Depends(get_current_admin),
+    service: GoodPracticeService = Depends(get_good_practice_service),
+) -> GoodPractice:
+    return await service.create(payload)
 
 
 @router.get("", response_model=GoodPracticeAdminListResponse, status_code=status.HTTP_200_OK)

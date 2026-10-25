@@ -9,11 +9,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.good_practice import GoodPractice
 from app.models.good_practice_log import GoodPracticeLog
+from app.schemas.good_practice import GoodPracticeCreate
 
 
 class GoodPracticeService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    async def create(self, payload: GoodPracticeCreate) -> GoodPractice:
+        good_practice = GoodPractice(
+            title=payload.title,
+            description=payload.description,
+            enabled=payload.enabled,
+        )
+        self.db.add(good_practice)
+        await self.db.commit()
+        await self.db.refresh(good_practice)
+        return good_practice
 
     async def list_enabled(self) -> list[GoodPractice]:
         result = await self.db.execute(

@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from app.enums import Role
 from app.models.good_practice import GoodPractice
 from app.models.good_practice_log import GoodPracticeLog
 from app.models.user import User
+from app.services.good_practice import GoodPracticeService
 
 
 async def _create_good_practice(db_session: AsyncSession, **overrides: Any) -> GoodPractice:
@@ -555,3 +557,222 @@ async def test_disabling_good_practice_keeps_previous_logs(
     log = result.scalar_one()
     assert log.good_practice_id == good_practice.id
     assert log.user_id == user.id
+
+
+async def test_create_good_practice_as_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.post(
+        "/admin/good-practices",
+        json={
+            "title": "Faça uma pausa consciente",
+            "description": "Reserve cinco minutos para descansar.",
+            "enabled": True,
+        },
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert set(body) == {"id", "title", "description", "enabled"}
+    assert body["title"] == "Faça uma pausa consciente"
+    assert body["enabled"] is True
+
+    result = await db_session.execute(
+        select(GoodPractice).where(GoodPractice.id == uuid.UUID(body["id"]))
+    )
+    good_practice = result.scalar_one()
+    assert good_practice.description == "Reserve cinco minutos para descansar."
+    assert good_practice.enabled is True
+    assert good_practice.deleted_at is None
+
+
+async def test_create_good_practice_defaults_to_enabled(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "Alongue-se", "description": "Estique os braços por um minuto."},
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["enabled"] is True
+
+
+async def test_create_good_practice_trims_whitespace(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "  Respire  ", "description": "  Inspire e expire.  "},
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["title"] == "Respire"
+    assert body["description"] == "Inspire e expire."
+
+
+async def test_create_good_practice_as_regular_user_forbidden(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "Beber água", "description": "Beba um copo de água agora."},
+        headers=auth_headers(user.id),
+    )
+
+    assert response.status_code == 403
+
+
+async def test_create_good_practice_as_professional_forbidden(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    professional = await create_user(role=Role.PROFESSIONAL)
+
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "Beber água", "description": "Beba um copo de água agora."},
+        headers=auth_headers(professional.id),
+    )
+
+    assert response.status_code == 403
+
+
+async def test_create_good_practice_without_auth_header(client: AsyncClient) -> None:
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "Beber água", "description": "Beba um copo de água agora."},
+    )
+
+    assert response.status_code in (401, 403)
+
+
+async def test_create_good_practice_with_invalid_token(client: AsyncClient) -> None:
+    response = await client.post(
+        "/admin/good-practices",
+        json={"title": "Beber água", "description": "Beba um copo de água agora."},
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"description": "Sem título."},
+        {"title": "Sem descrição."},
+        {},
+        {"title": "", "description": "Título vazio."},
+        {"title": "Descrição vazia.", "description": ""},
+        {"title": "   ", "description": "Título só com espaço."},
+        {"title": "Descrição só com espaço.", "description": "   "},
+        {"title": 1, "description": "Título não é texto."},
+        {"title": "Habilitada não é booleano.", "description": "x", "enabled": "talvez"},
+        {"title": "Campo a mais.", "description": "x", "id": str(uuid.uuid4())},
+    ],
+)
+async def test_create_good_practice_with_invalid_payload(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+    payload: dict[str, Any],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.post(
+        "/admin/good-practices", json=payload, headers=auth_headers(admin.id)
+    )
+
+    assert response.status_code == 422
+
+
+async def test_created_good_practice_is_listed_for_users(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user()
+
+    created = await client.post(
+        "/admin/good-practices",
+        json={"title": "Caminhe um pouco", "description": "Dê uma volta de cinco minutos."},
+        headers=auth_headers(admin.id),
+    )
+    assert created.status_code == 201
+
+    response = await client.get("/good-practices", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert created.json()["id"] in [item["id"] for item in response.json()["items"]]
+
+
+async def test_created_disabled_good_practice_is_not_listed_for_users(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user()
+
+    created = await client.post(
+        "/admin/good-practices",
+        json={"title": "Rascunho", "description": "Ainda não vale.", "enabled": False},
+        headers=auth_headers(admin.id),
+    )
+    assert created.status_code == 201
+    assert created.json()["enabled"] is False
+
+    response = await client.get("/good-practices", headers=auth_headers(user.id))
+
+    assert response.status_code == 200
+    assert created.json()["id"] not in [item["id"] for item in response.json()["items"]]
+
+
+async def test_created_good_practice_enters_daily_selection_pool(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    created = await client.post(
+        "/admin/good-practices",
+        json={"title": "Agradeça por algo", "description": "Pense em uma coisa boa de hoje."},
+        headers=auth_headers(admin.id),
+    )
+    assert created.status_code == 201
+
+    # A seleção diária escolhe uma das práticas habilitadas, então basta a prática nova
+    # entrar nesse conjunto: qual das habilitadas sai no dia depende da data.
+    service = GoodPracticeService(db_session)
+    pool = await service.list_enabled()
+    daily = await service.get_daily()
+
+    assert uuid.UUID(created.json()["id"]) in [practice.id for practice in pool]
+    assert daily is not None
+    assert daily.id in [practice.id for practice in pool]
