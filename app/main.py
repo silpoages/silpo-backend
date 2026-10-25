@@ -9,6 +9,7 @@ from app.api.routes import (
     emergency_contacts,
     good_practices,
     health,
+    journey,
     mood_logs,
     users,
 )
@@ -43,6 +44,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(emergency_contacts.router)
     app.include_router(activities.router)
     app.include_router(good_practices.router)
+    app.include_router(journey.router)
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
 
