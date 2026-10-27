@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -12,6 +13,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.enums import Gender, Role
 from app.models.user import User
 from app.services.email_confirmation import EmailConfirmationService
+from app.services.password_reset import PasswordResetService
 
 
 class UserService:
@@ -39,6 +41,14 @@ class UserService:
             onboarding_completed=False,
         )
         self.db.add(user)
+        await self._commit_or_conflict()
+        await self.db.refresh(user)
+
+        await EmailConfirmationService(self.db).create_and_send(user)
+
+        return user
+
+    async def _commit_or_conflict(self) -> None:
         try:
             await self.db.commit()
         except IntegrityError as exc:
@@ -53,10 +63,41 @@ class UserService:
                     detail="Email já cadastrado",
                 ) from exc
             raise
+
+    async def create_by_admin(self, payload: dict[str, Any]) -> User:
+        # Ninguém conhece esta senha: o usuário define a dele pelo link de redefinição
+        # enviado logo abaixo, o que também confirma o e-mail.
+        user = User(
+            **{**payload, "email": payload["email"].strip().lower()},
+            password=hash_password(secrets.token_urlsafe(32)),
+            role=Role.USER,
+        )
+        self.db.add(user)
+        await self._commit_or_conflict()
         await self.db.refresh(user)
 
-        await EmailConfirmationService(self.db).create_and_send(user)
+        await PasswordResetService(self.db).request_reset(user.email)
 
+        return user
+
+    async def update_by_admin(
+        self, user_id: uuid.UUID, payload: dict[str, Any], current_admin: User
+    ) -> User:
+        user = await self.get_user_by_id(user_id)
+
+        if user.id == current_admin.id and payload.get("enabled") is False:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Você não pode desativar a própria conta",
+            )
+
+        if "email" in payload:
+            payload["email"] = payload["email"].strip().lower()
+        for field, value in payload.items():
+            setattr(user, field, value)
+
+        await self._commit_or_conflict()
+        await self.db.refresh(user)
         return user
 
     async def update_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> User:
@@ -138,6 +179,7 @@ class UserService:
         search: str | None = None,
         role: Role | None = None,
         enabled: bool | None = None,
+        gender: Gender | None = None,
     ) -> tuple[list[User], int]:
         query = select(User)
 
@@ -148,6 +190,8 @@ class UserService:
             query = query.where(User.role == role)
         if enabled is not None:
             query = query.where(User.enabled == enabled)
+        if gender is not None:
+            query = query.where(User.gender == gender)
 
         total = await self.db.scalar(select(func.count()).select_from(query.subquery()))
 

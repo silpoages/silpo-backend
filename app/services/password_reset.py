@@ -98,6 +98,10 @@ class PasswordResetService:
 
         user.password = hash_password(new_password)
         reset_code.used_at = datetime.now(UTC)
+        # Usar o link enviado por e-mail prova que a pessoa controla o endereço. Isso
+        # libera o login de contas criadas pelo admin, que nunca receberam a confirmação.
+        if user.email_confirmed_at is None:
+            user.email_confirmed_at = reset_code.used_at
         await self.db.commit()
         await self.db.refresh(user)
         return user
