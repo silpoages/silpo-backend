@@ -46,6 +46,13 @@ def extract_reset_code(mock_send: MagicMock) -> str:
     return match.group(1)
 
 
+def extract_numeric_reset_code(mock_send: MagicMock) -> str:
+    html: str = mock_send.call_args[0][0]["html"]
+    match = re.search(r">(\d{6})</p>", html)
+    assert match is not None
+    return match.group(1)
+
+
 @pytest.fixture(scope="session")
 def postgres_container() -> Iterator[PostgresContainer]:
     with PostgresContainer("postgres:16-alpine") as postgres:
