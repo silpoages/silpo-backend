@@ -8,6 +8,7 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
 from app.services.activity import ActivityService
+from app.services.daily_message import DailyMessageService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
@@ -69,3 +70,7 @@ async def get_current_admin(
     user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_admin(user_id)
+
+
+def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
+    return DailyMessageService(db)
