@@ -1,11 +1,14 @@
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
+from unittest.mock import MagicMock
 
 from httpx import AsyncClient
 
-from app.enums import Role
+from app.core.security import pwd_context
+from app.enums import Gender, Role
 from app.models.user import User
+from tests.conftest import extract_reset_code
 
 EXPECTED_FIELDS = {
     "id",
@@ -197,3 +200,244 @@ async def test_get_user_forbidden_for_non_admin(
     response = await client.get(f"/admin/users/{other.id}", headers=auth_headers(user.id))
 
     assert response.status_code == 403
+
+
+async def test_create_user_requires_admin(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+
+    response = await client.post(
+        "/admin/users",
+        json={"full_name": "Nova Pessoa", "email": f"{_marker()}@example.com"},
+        headers=auth_headers(user.id),
+    )
+
+    assert response.status_code == 403
+
+
+async def test_create_user_persists_and_sends_password_link(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+    mock_resend_send: MagicMock,
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    email = f"{_marker()}@Example.com"
+
+    response = await client.post(
+        "/admin/users",
+        json={
+            "full_name": "  Iris Nogueira ",
+            "email": email,
+            "birth_date": "1979-04-02",
+            "gender": "NON_BINARY",
+            "enabled": False,
+        },
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert set(body) == EXPECTED_FIELDS
+    assert body["full_name"] == "Iris Nogueira"
+    assert body["email"] == email.lower()
+    assert body["birth_date"] == "1979-04-02"
+    assert body["gender"] == "NON_BINARY"
+    assert body["role"] == "USER"
+    assert body["enabled"] is False
+    # Conta desativada não recebe o link: ele só é enviado para contas que podem entrar.
+    mock_resend_send.assert_not_called()
+
+
+async def test_created_user_can_log_in_after_setting_password(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+    mock_resend_send: MagicMock,
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    email = f"{_marker()}@example.com"
+
+    created = await client.post(
+        "/admin/users",
+        json={"full_name": "Helena Prado", "email": email},
+        headers=auth_headers(admin.id),
+    )
+    code = extract_reset_code(mock_resend_send)
+    reset = await client.post(
+        f"/auth/reset-password/{code}", json={"new_password": "senha-escolhida"}
+    )
+    login = await client.post("/auth/login", json={"email": email, "password": "senha-escolhida"})
+
+    assert created.status_code == 201
+    assert mock_resend_send.call_args[0][0]["to"] == [email]
+    assert reset.status_code == 200
+    assert login.status_code == 200
+
+
+async def test_create_user_rejects_duplicate_email(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    existing = await create_user()
+
+    response = await client.post(
+        "/admin/users",
+        json={"full_name": "Duplicada", "email": existing.email.upper()},
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 409
+
+
+async def test_create_user_validates_payload(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    headers = auth_headers(admin.id)
+
+    blank_name = await client.post(
+        "/admin/users", json={"full_name": "   ", "email": "a@example.com"}, headers=headers
+    )
+    invalid_email = await client.post(
+        "/admin/users", json={"full_name": "Nome", "email": "nao-e-email"}, headers=headers
+    )
+    with_role = await client.post(
+        "/admin/users",
+        json={"full_name": "Nome", "email": "b@example.com", "role": "ADMIN"},
+        headers=headers,
+    )
+
+    assert blank_name.status_code == 422
+    assert invalid_email.status_code == 422
+    assert with_role.status_code == 422
+
+
+async def test_update_user_changes_only_sent_fields(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user(full_name="Marina Alves", birth_date=date(1997, 3, 12))
+
+    response = await client.patch(
+        f"/admin/users/{user.id}",
+        json={"full_name": "Marina A. Alves", "enabled": False},
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["full_name"] == "Marina A. Alves"
+    assert body["enabled"] is False
+    assert body["email"] == user.email
+    assert body["birth_date"] == "1997-03-12"
+
+
+async def test_update_user_rejects_null_for_required_fields(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user(birth_date=date(1997, 3, 12))
+    headers = auth_headers(admin.id)
+
+    null_email = await client.patch(
+        f"/admin/users/{user.id}", json={"email": None}, headers=headers
+    )
+    null_birth_date = await client.patch(
+        f"/admin/users/{user.id}", json={"birth_date": None}, headers=headers
+    )
+
+    assert null_email.status_code == 422
+    assert null_birth_date.status_code == 200
+    assert null_birth_date.json()["birth_date"] is None
+
+
+async def test_update_user_rejects_email_in_use(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user()
+    other = await create_user()
+
+    response = await client.patch(
+        f"/admin/users/{user.id}", json={"email": other.email}, headers=auth_headers(admin.id)
+    )
+
+    assert response.status_code == 409
+
+
+async def test_update_user_returns_404_when_missing(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.patch(
+        f"/admin/users/{uuid.uuid4()}", json={"enabled": False}, headers=auth_headers(admin.id)
+    )
+
+    assert response.status_code == 404
+
+
+async def test_admin_cannot_disable_own_account(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+
+    response = await client.patch(
+        f"/admin/users/{admin.id}", json={"enabled": False}, headers=auth_headers(admin.id)
+    )
+
+    assert response.status_code == 400
+
+
+async def test_disabled_user_cannot_log_in(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    user = await create_user(password=pwd_context.hash("senha-atual"))
+
+    await client.patch(
+        f"/admin/users/{user.id}", json={"enabled": False}, headers=auth_headers(admin.id)
+    )
+    login = await client.post("/auth/login", json={"email": user.email, "password": "senha-atual"})
+
+    assert login.status_code == 401
+
+
+async def test_list_users_filters_by_gender(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    marker = _marker()
+    female = await create_user(email=f"{marker}-f@example.com", gender=Gender.FEMALE)
+    await create_user(email=f"{marker}-m@example.com", gender=Gender.MALE)
+
+    response = await client.get(
+        "/admin/users",
+        params={"search": marker, "gender": "FEMALE"},
+        headers=auth_headers(admin.id),
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [str(female.id)]

@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.enums import Gender, Role
 
@@ -50,6 +50,35 @@ class AdminUserRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    # min_length roda depois do strip, então nome só com espaço vira 422.
+    full_name: str = Field(min_length=1)
+    email: EmailStr
+    birth_date: date | None = None
+    gender: Gender = Gender.PREFER_NOT_TO_SAY
+    enabled: bool = True
+
+
+class AdminUserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    full_name: str | None = Field(default=None, min_length=1)
+    email: EmailStr | None = None
+    birth_date: date | None = None
+    gender: Gender | None = None
+    enabled: bool | None = None
+
+    @model_validator(mode="after")
+    def _reject_explicit_null(self) -> "AdminUserUpdate":
+        # Ausente = não altera; null só é aceito em birth_date, a única coluna opcional aqui.
+        for field in self.model_fields_set - {"birth_date"}:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class AdminUserListResponse(BaseModel):
