@@ -1097,6 +1097,19 @@ wheels = [
 ]
 
 [[package]]
+name = "resend"
+version = "2.47.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/08/d7/12f9decf70586a3ff5c9ec315d6751e026f906f7395b78334e39cb2647c4/resend-2.47.0.tar.gz", hash = "sha256:c92900e1c45f6c77e09cbfb29467671b87a62ee21baf8959e60047f3667fb652", size = 61527, upload-time = "2026-09-18T14:58:34.84Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/a9/28c1e359a3d972931c2c586f11efc08066c2e1ca9de7701ef0fbe923d814/resend-2.47.0-py2.py3-none-any.whl", hash = "sha256:04369afdff1741bc21c83dc68effad3b1635057b2db0f9d70b6be611310c9aed", size = 93346, upload-time = "2026-09-18T14:58:33.096Z" },
+]
+
+[[package]]
 name = "rich"
 version = "15.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1148,6 +1161,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
+    { name = "resend" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1176,6 +1190,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pyjwt", specifier = ">=2.14.0" },
+    { name = "resend", specifier = ">=2.47.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]

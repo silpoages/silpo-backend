@@ -8,8 +8,8 @@ from app.enums import ActivityType
 from app.models.activity import Activity
 
 
-class BreathActivity(Activity):
-    __tablename__ = "breath_activity"
+class BreathingActivity(Activity):
+    __tablename__ = "breathing_activity"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("activity.id"), primary_key=True
@@ -19,4 +19,4 @@ class BreathActivity(Activity):
     exhale_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     repeat_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    __mapper_args__ = {"polymorphic_identity": ActivityType.BREATH}
+    __mapper_args__ = {"polymorphic_identity": ActivityType.BREATHING}

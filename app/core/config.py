@@ -2,9 +2,17 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.enums import EmailProvider, Environment
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Gates things that shouldn't be exposed/enforced outside of a real deployment: API docs
+    # (see app/main.py) and the login email-confirmation requirement (see app/services/user.py).
+    # Defaults to LOCAL for a friction-free local/dev setup; real deployments (silpo-iac's
+    # ecs-service unit) must set APP_ENV=production explicitly.
+    app_env: Environment = Environment.LOCAL
 
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
@@ -20,12 +28,34 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
+    email_provider: EmailProvider = EmailProvider.RESEND
+    resend_api_key: str = ""
+    # Used when email_provider is "smtp". Port 587 with STARTTLS; for Gmail the password
+    # must be an app password, not the account password.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # "onboarding@resend.dev" works without domain verification; swap once a
+    # sending domain is verified in Resend. With SMTP, use the mailbox's own address.
+    email_from: str = "Silpo <onboarding@resend.dev>"
+    # Base URL used to build links sent in emails (e.g. the email confirmation link).
+    api_base_url: str = "http://localhost:8000"
+    # Base URL of the web app, used to build the password-reset link sent by email. The
+    # mobile app registers this same domain as a universal/app link, so one URL works for
+    # both web and mobile.
+    web_app_url: str = "http://localhost:3000"
+
     @property
     def database_url(self) -> str:
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == Environment.PRODUCTION
 
 
 @lru_cache

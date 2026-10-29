@@ -6,4 +6,5 @@ class Mood(enum.StrEnum):
     BEM = "BEM"
     CANSADO = "CANSADO"
     TRISTE = "TRISTE"
+    ANSIOSO = "ANSIOSO"
     IRRITADO = "IRRITADO"

@@ -13,7 +13,7 @@ class EmergencyContact(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True
     )
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     nickname: Mapped[str] = mapped_column(Text, nullable=False)

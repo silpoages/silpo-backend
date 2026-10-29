@@ -21,9 +21,9 @@ class SelfRegulationSession(ActivitySession):
 
 # Essas classes não criam tabelas
 # Servem apenas para que o SQLAlchemy consiga aplicar a herança em SelfRegulationSession via enum
-class BreathSession(ActivitySession):
+class BreathingSession(ActivitySession):
     __mapper_args__ = {
-        "polymorphic_identity": ActivityType.BREATH,
+        "polymorphic_identity": ActivityType.BREATHING,
     }
 
 

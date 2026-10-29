@@ -13,7 +13,7 @@ from app.models import (
     Achievement,
     AchievementLog,
     ActivitySession,
-    BreathActivity,
+    BreathingActivity,
     DailyMessage,
     DiaryEntry,
     EmergencyContact,
@@ -35,25 +35,127 @@ async def clear_db(db) -> None:
     await db.commit()
 
 
+async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    defaults = (
+        (
+            BreathingActivity,
+            "Respiração 4-7-8",
+            {
+                "max_duration_seconds": 120,
+                "inhale_seconds": 4,
+                "hold_seconds": 7,
+                "exhale_seconds": 8,
+                "repeat_count": 4,
+            },
+        ),
+        (
+            MeditationActivity,
+            "Meditação transcendental",
+            {
+                "max_duration_seconds": 300,
+                "audio_url": "https://www.youtube.com/watch?v=2p8q1vs9K78",
+            },
+        ),
+        (
+            SelfRegulationActivity,
+            "Estoura Bolhas",
+            {"max_duration_seconds": 60, "bubble_spawn_interval_ms": 800},
+        ),
+    )
+    activity_ids = []
+    for model, name, configuration in defaults:
+        existing_id = await db.scalar(
+            select(model.id)
+            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
+            .limit(1)
+        )
+        if existing_id is not None:
+            activity_ids.append(existing_id)
+            continue
+
+        activity_id = uuid.uuid4()
+        db.add(model(id=activity_id, name=name, **configuration))
+        activity_ids.append(activity_id)
+
+    await db.flush()
+    return activity_ids[0], activity_ids[1], activity_ids[2]
+
+
+async def ensure_default_good_practices(db) -> uuid.UUID:
+    defaults = (
+        (
+            "Vá a um estabelecimento pequeno",
+            "Visite um comércio em horário de menor movimento.",
+        ),
+        (
+            "Envie uma mensagem gentil",
+            "Mande uma mensagem breve para alguém de quem você gosta.",
+        ),
+        (
+            "Anote algo bom do seu dia",
+            "Escreva uma coisa, mesmo pequena, que fez bem a você hoje.",
+        ),
+        (
+            "Faça uma pausa consciente",
+            "Reserve cinco minutos para descansar e perceber como você está.",
+        ),
+        (
+            "Cuide de um pequeno espaço",
+            "Organize um canto da casa que você usa com frequência.",
+        ),
+        (
+            "Observe o que está ao seu redor",
+            "Escolha um lugar tranquilo e repare em três detalhes do ambiente.",
+        ),
+        (
+            "Alongue o corpo com calma",
+            "Faça um alongamento leve, respeitando os limites do seu corpo.",
+        ),
+        (
+            "Agradeça alguém",
+            "Conte a uma pessoa algo que você aprecia nela.",
+        ),
+    )
+    first_practice_id = None
+    for title, description in defaults:
+        practice_id = await db.scalar(
+            select(GoodPractice.id)
+            .where(
+                GoodPractice.title == title,
+                GoodPractice.enabled.is_(True),
+                GoodPractice.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        if practice_id is None:
+            practice_id = uuid.uuid4()
+            db.add(GoodPractice(id=practice_id, title=title, description=description))
+        if first_practice_id is None:
+            first_practice_id = practice_id
+
+    await db.flush()
+    assert first_practice_id is not None
+    return first_practice_id
+
+
 async def seed() -> None:
     async with async_session_maker() as db:
         if "--reset" in sys.argv:
-            print("\n\n Deletando os dados prévios do seu banco...")
+            print("\n\n🗑️   Deletando os dados prévios do seu banco...")
             await clear_db(db)
-            print("\n Adicionando novos dados do seed")
+            print("\n🌿 Adicionando novos dados do seed")
 
         if "--clear-db" in sys.argv:
             await clear_db(db)
-            print("\n\n Banco limpo, sem semear (todos os dados foram apagados)\n\n")
+            print("\n\n✅   Banco limpo, sem semear (todos os dados foram apagados)\n\n")
             return
 
         existente = await db.execute(select(User))
         if existente.scalars().first() is not None:
-            print(
-                "\n\n Seu banco já possui dados. Caso queira resetar utilize o comando:\n\n\n"
-                "          uv run scripts/seed.py --reset\n"
-                "\n\n ATENÇÃO: O COMANDO ACIMA DELETA TODOS OS DADOS DO SEU BANCO! [CUIDADO]\n\n"
-            )
+            await ensure_default_activities(db)
+            await ensure_default_good_practices(db)
+            await db.commit()
+            print("\n\n✅ Atividades e práticas do bem disponíveis; dados preservados.\n\n")
             return
 
         now = datetime.now(UTC)
@@ -122,44 +224,22 @@ async def seed() -> None:
             ),
         ]
 
-        breath_activity_id = uuid.uuid4()
-        meditation_activity_id = uuid.uuid4()
-        self_regulation_activity_id = uuid.uuid4()
+        (
+            breathing_activity_id,
+            meditation_activity_id,
+            self_regulation_activity_id,
+        ) = await ensure_default_activities(db)
 
-        activities = [
-            BreathActivity(
-                id=breath_activity_id,
-                name="Respiração 4-7-8",
-                max_duration_seconds=120,
-                inhale_seconds=4,
-                hold_seconds=7,
-                exhale_seconds=8,
-                repeat_count=4,
-            ),
-            MeditationActivity(
-                id=meditation_activity_id,
-                name="Meditação transcendental",
-                max_duration_seconds=300,
-                audio_url="https://www.youtube.com/watch?v=2p8q1vs9K78",
-            ),
-            SelfRegulationActivity(
-                id=self_regulation_activity_id,
-                name="Estoura Bolhas",
-                max_duration_seconds=60,
-                bubble_spawn_interval_ms=800,
-            ),
-        ]
-
-        breath_session_id = uuid.uuid4()
+        breathing_session_id = uuid.uuid4()
         self_regulation_session_id = uuid.uuid4()
         meditation_session_id = uuid.uuid4()
 
         activity_sessions = [
             ActivitySession(
-                id=breath_session_id,
+                id=breathing_session_id,
                 user_id=paciente1_id,
-                activity_id=breath_activity_id,
-                type=ActivityType.BREATH,
+                activity_id=breathing_activity_id,
+                type=ActivityType.BREATHING,
                 time_spent_seconds=76,
                 posted_at=now,
             ),
@@ -194,21 +274,19 @@ async def seed() -> None:
             AchievementLog(user_id=paciente1_id, achievement_id=achievement_id),
         ]
 
-        good_practice_id = uuid.uuid4()
-        good_practices = [
-            GoodPractice(
-                id=good_practice_id,
-                title="Vá a um estabelecimento pequeno",
-                description="Visite um comércio em horário de menor movimento.",
-            ),
-        ]
+        good_practice_id = await ensure_default_good_practices(db)
         good_practice_logs = [
             GoodPracticeLog(user_id=paciente1_id, good_practice_id=good_practice_id, posted_at=now),
         ]
 
         mood_log_id = uuid.uuid4()
         mood_logs = [
-            MoodLog(id=mood_log_id, user_id=paciente1_id, mood=Mood.BEM),
+            MoodLog(
+                id=mood_log_id,
+                user_id=paciente1_id,
+                mood=Mood.BEM,
+                log_date=now.date(),
+            ),
         ]
         diary_entries = [
             DiaryEntry(
@@ -228,7 +306,7 @@ async def seed() -> None:
             DailyMessage(message="Neste momento, estou seguro e protegido."),
         ]
 
-        db.add_all(users + activities + achievements + good_practices + daily_messages)
+        db.add_all(users + achievements + daily_messages)
         await db.flush()
 
         db.add_all(
@@ -246,7 +324,7 @@ async def seed() -> None:
 
         await db.commit()
 
-        print("\n\n Seed executado com sucesso!\n\n")
+        print("\n\n✅ Seed executado com sucesso!\n\n")
 
 
 if __name__ == "__main__":

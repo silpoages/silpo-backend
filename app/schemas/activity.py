@@ -1,0 +1,94 @@
+import uuid
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.enums import ActivityType
+
+_ACTIVITY_TYPE_LABELS: dict[ActivityType, str] = {
+    ActivityType.BREATHING: "breathing",
+    ActivityType.MEDITATION: "meditation",
+    ActivityType.SELF_REGULATION: "selfregulation",
+}
+
+
+class ActivityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    type: str
+    max_duration_seconds: int | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _map_type(cls, value: object) -> object:
+        if isinstance(value, ActivityType):
+            return _ACTIVITY_TYPE_LABELS[value]
+        return value
+
+
+class ActivityListResponse(BaseModel):
+    items: list[ActivityRead]
+
+
+class ActivityConfigurationBase(BaseModel):
+    id: uuid.UUID
+    name: str
+    max_duration_seconds: int | None
+
+
+class BreathingConfiguration(BaseModel):
+    inhale_seconds: int
+    hold_seconds: int
+    exhale_seconds: int
+    repeat_count: int | None
+
+
+class BreathingActivityRead(ActivityConfigurationBase, BreathingConfiguration):
+    type: Literal["breathing"]
+
+
+class MeditationConfiguration(BaseModel):
+    audio_url: str
+
+
+class MeditationActivityRead(ActivityConfigurationBase, MeditationConfiguration):
+    type: Literal["meditation"]
+
+
+class SelfRegulationConfiguration(BaseModel):
+    bubble_spawn_interval_ms: int
+
+
+class SelfRegulationActivityRead(ActivityConfigurationBase, SelfRegulationConfiguration):
+    type: Literal["self_regulation"]
+
+
+class ActivitySessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    time_spent_seconds: int = Field(gt=0, le=2_147_483_647, strict=True)
+
+
+class ActivitySessionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    session_id: uuid.UUID = Field(validation_alias="id")
+    activity_id: uuid.UUID
+    type: str
+    time_spent_seconds: int
+    completed_at: datetime = Field(validation_alias="posted_at")
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _map_type(cls, value: object) -> object:
+        if isinstance(value, ActivityType):
+            return _ACTIVITY_TYPE_LABELS[value]
+        return value
+
+
+ActivityConfigurationRead = Annotated[
+    BreathingActivityRead | MeditationActivityRead | SelfRegulationActivityRead,
+    Field(discriminator="type"),
+]

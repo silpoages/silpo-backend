@@ -2,14 +2,16 @@ from app.models.achievement import Achievement as Achievement
 from app.models.achievement_log import AchievementLog as AchievementLog
 from app.models.activity import Activity as Activity
 from app.models.activity_session import ActivitySession as ActivitySession
-from app.models.breath_activity import BreathActivity as BreathActivity
+from app.models.breathing_activity import BreathingActivity as BreathingActivity
 from app.models.daily_message import DailyMessage as DailyMessage
 from app.models.diary_entry import DiaryEntry as DiaryEntry
+from app.models.email_confirmation_code import EmailConfirmationCode as EmailConfirmationCode
 from app.models.emergency_contact import EmergencyContact as EmergencyContact
 from app.models.good_practice import GoodPractice as GoodPractice
 from app.models.good_practice_log import GoodPracticeLog as GoodPracticeLog
 from app.models.meditation_activity import MeditationActivity as MeditationActivity
 from app.models.mood_log import MoodLog as MoodLog
+from app.models.password_reset_code import PasswordResetCode as PasswordResetCode
 from app.models.professional_patient import ProfessionalPatient as ProfessionalPatient
 from app.models.self_regulation_activity import SelfRegulationActivity as SelfRegulationActivity
 from app.models.self_regulation_session import SelfRegulationSession as SelfRegulationSession
