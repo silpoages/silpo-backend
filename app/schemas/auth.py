@@ -2,7 +2,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.enums import Role
+from app.enums import PasswordResetMethod, Role
 
 
 class RegisterInput(BaseModel):
@@ -44,8 +44,18 @@ class ConfirmEmailOutput(BaseModel):
     message: str
 
 
+class ResendConfirmationInput(BaseModel):
+    email: EmailStr
+
+
+class ResendConfirmationOutput(BaseModel):
+    message: str
+
+
 class ForgotPasswordInput(BaseModel):
     email: EmailStr
+    # LINK (web, default) emails a link; CODE (mobile app) emails a 6-digit code.
+    method: PasswordResetMethod = PasswordResetMethod.LINK
 
 
 class ForgotPasswordOutput(BaseModel):
@@ -62,3 +72,12 @@ class ResetPasswordInput(BaseModel):
 
 class ResetPasswordOutput(BaseModel):
     message: str
+
+
+class ResetPasswordCodeVerifyInput(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class ResetPasswordCodeInput(ResetPasswordCodeVerifyInput):
+    new_password: str = Field(min_length=8)

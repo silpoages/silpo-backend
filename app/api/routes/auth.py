@@ -1,6 +1,7 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
 
 from app.api.deps import (
     get_current_user,
@@ -18,6 +19,10 @@ from app.schemas.auth import (
     LoginUser,
     RegisterInput,
     RegisterOutput,
+    ResendConfirmationInput,
+    ResendConfirmationOutput,
+    ResetPasswordCodeInput,
+    ResetPasswordCodeVerifyInput,
     ResetPasswordInput,
     ResetPasswordOutput,
     ResetPasswordVerifyOutput,
@@ -25,6 +30,7 @@ from app.schemas.auth import (
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
+from app.templates import render_email_confirmation_page
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -56,10 +62,37 @@ async def read_current_user(current_user: User = Depends(get_current_user)) -> U
 )
 async def confirm_email(
     code: str,
+    request: Request,
+    service: EmailConfirmationService = Depends(get_email_confirmation_service),
+) -> dict[str, str] | HTMLResponse:
+    # O link do e-mail abre no navegador: quem pede HTML recebe a página no visual do app;
+    # clientes da API continuam recebendo JSON.
+    wants_html = "text/html" in request.headers.get("accept", "")
+    try:
+        await service.confirm(code)
+    except HTTPException as exc:
+        if not wants_html:
+            raise
+        return HTMLResponse(
+            render_email_confirmation_page(confirmed=False), status_code=exc.status_code
+        )
+
+    if wants_html:
+        return HTMLResponse(render_email_confirmation_page(confirmed=True))
+    return {"message": "Email confirmed"}
+
+
+@router.post(
+    "/resend-confirmation",
+    response_model=ResendConfirmationOutput,
+    status_code=status.HTTP_200_OK,
+)
+async def resend_confirmation(
+    payload: ResendConfirmationInput,
     service: EmailConfirmationService = Depends(get_email_confirmation_service),
 ) -> dict[str, str]:
-    await service.confirm(code)
-    return {"message": "Email confirmed"}
+    await service.resend(payload.email)
+    return {"message": "If this email needs confirmation, a new link has been sent"}
 
 
 @router.post(
@@ -69,7 +102,7 @@ async def forgot_password(
     payload: ForgotPasswordInput,
     service: PasswordResetService = Depends(get_password_reset_service),
 ) -> dict[str, str]:
-    await service.request_reset(payload.email)
+    await service.request_reset(payload.email, payload.method)
     return {"message": "If this email is registered, a reset link has been sent"}
 
 
@@ -95,4 +128,32 @@ async def reset_password(
     service: PasswordResetService = Depends(get_password_reset_service),
 ) -> dict[str, str]:
     await service.reset_password(code, payload.new_password)
+    return {"message": "Password updated"}
+
+
+# Fluxo do app: código de 6 dígitos enviado por e-mail, sempre validado junto com o e-mail.
+# Fica fora de /reset-password/{code} para não colidir com o fluxo do link (web).
+@router.post(
+    "/reset-password-code/verify",
+    response_model=ResetPasswordVerifyOutput,
+    status_code=status.HTTP_200_OK,
+)
+async def verify_reset_password_numeric_code(
+    payload: ResetPasswordCodeVerifyInput,
+    service: PasswordResetService = Depends(get_password_reset_service),
+) -> dict[str, str]:
+    await service.verify_numeric_code(payload.email, payload.code)
+    return {"message": "Valid reset code"}
+
+
+@router.post(
+    "/reset-password-code", response_model=ResetPasswordOutput, status_code=status.HTTP_200_OK
+)
+async def reset_password_with_numeric_code(
+    payload: ResetPasswordCodeInput,
+    service: PasswordResetService = Depends(get_password_reset_service),
+) -> dict[str, str]:
+    await service.reset_password_with_numeric_code(
+        payload.email, payload.code, payload.new_password
+    )
     return {"message": "Password updated"}

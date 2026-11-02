@@ -4,7 +4,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -15,6 +15,9 @@ from app.services.email import EmailService
 logger = logging.getLogger(__name__)
 
 CODE_TTL = timedelta(hours=24)
+# Matches the app's 30-second "Reenviar e-mail" cooldown, and keeps the public resend
+# endpoint from being used to flood someone's inbox.
+RESEND_COOLDOWN = timedelta(seconds=30)
 
 
 def _hash_code(code: str) -> str:
@@ -54,6 +57,31 @@ class EmailConfirmationService:
             # the "email already registered" conflict). Log and let registration
             # succeed instead; the user can request the email again later.
             logger.exception("Failed to send confirmation email to %s", user.email)
+
+    async def resend(self, email: str) -> None:
+        normalized_email = email.strip().lower()
+        user = await self.db.scalar(select(User).where(User.email == normalized_email))
+
+        # Silent no-op for unknown, inactive or already confirmed accounts: the endpoint
+        # answers the same way either way, so it can't be used to find out who has an account.
+        if (
+            user is None
+            or not user.enabled
+            or user.deleted_at is not None
+            or user.email_confirmed_at is not None
+        ):
+            return
+
+        last_sent_at = await self.db.scalar(
+            select(func.max(EmailConfirmationCode.created_at)).where(
+                EmailConfirmationCode.user_id == user.id
+            )
+        )
+        if last_sent_at is not None and last_sent_at > datetime.now(UTC) - RESEND_COOLDOWN:
+            return
+
+        # Earlier links keep working until they expire; whichever one the user clicks confirms.
+        await self.create_and_send(user)
 
     async def confirm(self, code: str) -> User:
         result = await self.db.execute(

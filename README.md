@@ -18,7 +18,7 @@ Server-side API for Silpo: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL, manage
 | Dependency manager  | uv                                       |
 | Linter / formatter  | Ruff                                     |
 | Git hooks           | Husky                                    |
-| Transactional email | Resend                                   |
+| Transactional email | Resend or SMTP (`EMAIL_PROVIDER`)        |
 
 ## Project layout
 

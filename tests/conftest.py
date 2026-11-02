@@ -26,6 +26,8 @@ def mock_resend_send(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     # Force APP_ENV=production so tests don't depend on a developer's own .env (whose
     # APP_ENV=local would skip the email-confirmation requirement on login).
     monkeypatch.setenv("APP_ENV", "production")
+    # Same for EMAIL_PROVIDER: a local EMAIL_PROVIDER=smtp would bypass this mock and send for real.
+    monkeypatch.setenv("EMAIL_PROVIDER", "resend")
     get_settings.cache_clear()
     with patch("resend.Emails.send", return_value={"id": "test-email-id"}) as mock_send:
         yield mock_send
@@ -42,6 +44,13 @@ def extract_confirmation_code(mock_send: MagicMock) -> str:
 def extract_reset_code(mock_send: MagicMock) -> str:
     html: str = mock_send.call_args[0][0]["html"]
     match = re.search(r'href="[^"]*/reset-password\?code=([^"&]+)"', html)
+    assert match is not None
+    return match.group(1)
+
+
+def extract_numeric_reset_code(mock_send: MagicMock) -> str:
+    html: str = mock_send.call_args[0][0]["html"]
+    match = re.search(r">(\d{6})</p>", html)
     assert match is not None
     return match.group(1)
 

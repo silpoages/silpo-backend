@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.enums import Environment
+from app.enums import EmailProvider, Environment
 
 
 class Settings(BaseSettings):
@@ -28,9 +28,16 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
+    email_provider: EmailProvider = EmailProvider.RESEND
     resend_api_key: str = ""
+    # Used when email_provider is "smtp". Port 587 with STARTTLS; for Gmail the password
+    # must be an app password, not the account password.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
     # "onboarding@resend.dev" works without domain verification; swap once a
-    # sending domain is verified in Resend.
+    # sending domain is verified in Resend. With SMTP, use the mailbox's own address.
     email_from: str = "Silpo <onboarding@resend.dev>"
     # Base URL used to build links sent in emails (e.g. the email confirmation link).
     api_base_url: str = "http://localhost:8000"
