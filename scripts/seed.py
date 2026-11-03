@@ -52,6 +52,7 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
             MeditationActivity,
             "Meditação transcendental",
             {
+                "description": "Uma meditação guiada para acalmar a mente e reduzir a ansiedade.",
                 "max_duration_seconds": 300,
                 "audio_url": "https://www.youtube.com/watch?v=2p8q1vs9K78",
             },
@@ -64,13 +65,16 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        existing_id = await db.scalar(
-            select(model.id)
+        existing = await db.scalar(
+            select(model)
             .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
             .limit(1)
         )
-        if existing_id is not None:
-            activity_ids.append(existing_id)
+        if existing is not None:
+            # Reaplica a configuração (ex.: description nova) em quem já rodou o seed antes.
+            for field, value in configuration.items():
+                setattr(existing, field, value)
+            activity_ids.append(existing.id)
             continue
 
         activity_id = uuid.uuid4()
