@@ -8,6 +8,7 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
 from app.services.activity import ActivityService
+from app.services.dashboard_moods import DashboardMoodsService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
@@ -27,6 +28,12 @@ def get_activity_service(db: AsyncSession = Depends(get_session)) -> ActivitySer
 
 def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogService:
     return MoodLogService(db)
+
+
+def get_dashboard_moods_service(
+    db: AsyncSession = Depends(get_session),
+) -> DashboardMoodsService:
+    return DashboardMoodsService(db)
 
 
 def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
