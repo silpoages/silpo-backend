@@ -206,6 +206,30 @@ async def test_journey_aggregates_current_month_of_authenticated_user_only(
     assert body["achievements"] == {"unlocked": 1, "total": total_achievements}
 
 
+async def test_journey_counts_day_once_but_every_emotion_with_multiple_logs(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    user = await create_user()
+    day = _month_start().date()
+    db_session.add_all(
+        MoodLog(user_id=user.id, mood=mood, log_date=day)
+        for mood in (Mood.BEM, Mood.BEM, Mood.TRISTE)
+    )
+    await db_session.commit()
+
+    response = await client.get("/journey", headers=auth_headers(user.id))
+
+    body = response.json()
+    assert body["summary"]["mood_days"] == 1
+    assert body["mood_distribution"] == [
+        {"mood": "BEM", "count": 2},
+        {"mood": "TRISTE", "count": 1},
+    ]
+
+
 async def test_journey_ignores_user_id_in_query(
     client: AsyncClient,
     db_session: AsyncSession,
