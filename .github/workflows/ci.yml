@@ -106,6 +106,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+          CLUSTER="${{ vars.AWS_ECS_CLUSTER }}"
+          SERVICE="${{ vars.AWS_ECS_SERVICE }}"
+
+          SERVICE_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0]' --output json)
+          TASK_DEF=$(jq -r '.taskDefinition' <<< "$SERVICE_JSON")
+          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TASK_DEF" \
+            --query 'taskDefinition.containerDefinitions[0].name' --output text)
+
+          RUN_ARGS=(--cluster "$CLUSTER" --task-definition "$TASK_DEF" --started-by "gha-migrations")
+          if [ "$(jq -r '.networkConfiguration // empty' <<< "$SERVICE_JSON")" != "" ]; then
+            RUN_ARGS+=(--network-configuration "$(jq -c '.networkConfiguration' <<< "$SERVICE_JSON")")
+          fi
+          if [ "$(jq -r '.capacityProviderStrategy // [] | length' <<< "$SERVICE_JSON")" != "0" ]; then
+            RUN_ARGS+=(--capacity-provider-strategy "$(jq -c '.capacityProviderStrategy' <<< "$SERVICE_JSON")")
+          else
+            RUN_ARGS+=(--launch-type "$(jq -r '.launchType // "FARGATE"' <<< "$SERVICE_JSON")")
+          fi
+          OVERRIDES=$(jq -nc --arg name "$CONTAINER" \
+            '{containerOverrides: [{name: $name, command: ["alembic", "upgrade", "head"]}]}')
+
+          TASK_ARN=$(aws ecs run-task "${RUN_ARGS[@]}" --overrides "$OVERRIDES" \
+            --query 'tasks[0].taskArn' --output text)
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::Failed to start the migration task"
+            exit 1
+          fi
+          echo "Migration task: $TASK_ARN"
+
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+
+          TASK_JSON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0]' --output json)
+          EXIT_CODE=$(jq -r --arg name "$CONTAINER" \
+            '.containers[] | select(.name == $name) | .exitCode // "none"' <<< "$TASK_JSON")
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migrations failed (exit code: $EXIT_CODE, reason: $(jq -r '.stoppedReason' <<< "$TASK_JSON")). Check the task's logs in CloudWatch."
+            exit 1
+          fi
+          echo "Migrations applied successfully."
+
       # The ECS task definition always points at the ":latest" tag, so a plain image push
       # doesn't change what's running — the service has to be told to redeploy explicitly.
       - name: Force new ECS deployment
