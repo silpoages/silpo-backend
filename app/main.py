@@ -3,6 +3,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     activities,
+    admin_dashboard,
+    auth,
+    emergency_contacts,
+    health,
+    mood_logs,
+    users,
+)
+
+app = FastAPI(title="Silpo Backend")
+
+# Sem cookies/sessão (auth é via Bearer token no header), então liberar todas as
+# origens não abre risco de CSRF; permite o app mobile rodar em modo web contra
+# uma API local em outra origem (ex. Expo em :8081, API em :8000).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
     admin_good_practices,
     admin_users,
     auth,
@@ -15,6 +33,13 @@ from app.api.routes import (
 )
 from app.core.config import Settings, get_settings
 
+app.include_router(health.router)
+app.include_router(mood_logs.router)
+app.include_router(users.router)
+app.include_router(auth.router)
+app.include_router(emergency_contacts.router)
+app.include_router(activities.router)
+app.include_router(admin_dashboard.router)
 
 def create_app(settings: Settings) -> FastAPI:
     # Swagger UI, ReDoc and the raw OpenAPI schema all describe the API's routes and
