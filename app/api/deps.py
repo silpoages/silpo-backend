@@ -9,8 +9,12 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.activity import ActivityService
 from app.services.admin_dashboard import AdminDashboardService
+from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
+from app.services.good_practice import GoodPracticeService
+from app.services.journey import JourneyService
 from app.services.mood_log import MoodLogService
+from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
 
 DbSession = AsyncGenerator[AsyncSession, None]
@@ -34,6 +38,24 @@ def get_emergency_contact_service(
     db: AsyncSession = Depends(get_session),
 ) -> EmergencyContactService:
     return EmergencyContactService(db)
+
+
+def get_good_practice_service(db: AsyncSession = Depends(get_session)) -> GoodPracticeService:
+    return GoodPracticeService(db)
+
+
+def get_journey_service(db: AsyncSession = Depends(get_session)) -> JourneyService:
+    return JourneyService(db)
+
+
+def get_email_confirmation_service(
+    db: AsyncSession = Depends(get_session),
+) -> EmailConfirmationService:
+    return EmailConfirmationService(db)
+
+
+def get_password_reset_service(db: AsyncSession = Depends(get_session)) -> PasswordResetService:
+    return PasswordResetService(db)
 
 
 async def get_current_user(

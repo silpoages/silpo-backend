@@ -15,10 +15,10 @@ class ActivitySession(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True
     )
     activity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("activity.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("activity.id"), nullable=False, index=True
     )
     type: Mapped[ActivityType] = mapped_column(
         Enum(
