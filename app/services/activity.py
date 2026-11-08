@@ -94,7 +94,7 @@ class ActivityService:
         max_duration = activity.max_duration_seconds
         if max_duration is not None and time_spent_seconds > max_duration:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"time_spent_seconds must not exceed {max_duration}",
             )
 
