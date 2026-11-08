@@ -71,9 +71,8 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
             .limit(1)
         )
         if existing is not None:
-            # Reaplica a configuração (ex.: description nova) em quem já rodou o seed antes.
-            for field, value in configuration.items():
-                setattr(existing, field, value)
+            if isinstance(existing, MeditationActivity) and existing.description == "":
+                existing.description = configuration["description"]
             activity_ids.append(existing.id)
             continue
 

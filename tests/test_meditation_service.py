@@ -88,17 +88,39 @@ def test_meditation_create_rejects_unknown_field() -> None:
         _create_payload(unknown_field="x")
 
 
-@pytest.mark.parametrize("field", ["name", "description", "audio_url", "enabled"])
+@pytest.mark.parametrize(
+    "field", ["name", "description", "audio_url", "max_duration_seconds", "enabled"]
+)
 def test_meditation_update_rejects_explicit_null(field: str) -> None:
     with pytest.raises(ValidationError):
         MeditationUpdate.model_validate({field: None})
 
 
-def test_meditation_update_allows_clearing_max_duration() -> None:
-    update = MeditationUpdate.model_validate({"max_duration_seconds": None})
+@pytest.mark.parametrize("field, limit", [("name", 80), ("description", 300)])
+def test_meditation_schemas_enforce_text_limits(field: str, limit: int) -> None:
+    value = "x" * limit
+    _create_payload(**{field: value})
+    MeditationUpdate.model_validate({field: value})
 
-    assert "max_duration_seconds" in update.model_fields_set
-    assert update.max_duration_seconds is None
+    with pytest.raises(ValidationError):
+        _create_payload(**{field: value + "x"})
+    with pytest.raises(ValidationError):
+        MeditationUpdate.model_validate({field: value + "x"})
+
+
+def test_meditation_create_requires_duration() -> None:
+    with pytest.raises(ValidationError, match="max_duration_seconds"):
+        MeditationCreate.model_validate(
+            {"name": "Respiração", "description": "Descrição", "audio_url": "meditacao.mp3"}
+        )
+
+
+@pytest.mark.parametrize("duration", [0, -1])
+def test_meditation_schemas_reject_nonpositive_duration(duration: int) -> None:
+    with pytest.raises(ValidationError, match="max_duration_seconds"):
+        _create_payload(max_duration_seconds=duration)
+    with pytest.raises(ValidationError, match="max_duration_seconds"):
+        MeditationUpdate(max_duration_seconds=duration)
 
 
 def test_meditation_update_allows_absent_fields() -> None:
@@ -241,11 +263,12 @@ async def test_update_changes_only_sent_fields(
     service = MeditationService(db_session)
     meditation = await create_meditation()
 
-    updated = await service.update(meditation.id, {"name": "Novo nome"})
+    updated = await service.update(meditation.id, MeditationUpdate(name="Novo nome"))
 
     assert updated.name == "Novo nome"
     assert updated.description == "Uma meditação guiada de 5 minutos."
     assert updated.audio_url == "https://example.com/meditacao.mp3"
+    assert updated.max_duration_seconds == 300
 
 
 async def test_update_can_reenable_disabled_meditation(
@@ -254,7 +277,7 @@ async def test_update_can_reenable_disabled_meditation(
     service = MeditationService(db_session)
     meditation = await create_meditation(enabled=False)
 
-    updated = await service.update(meditation.id, {"enabled": True})
+    updated = await service.update(meditation.id, MeditationUpdate(enabled=True))
 
     assert updated.enabled is True
 

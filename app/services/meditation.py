@@ -1,13 +1,12 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.meditation_activity import MeditationActivity
-from app.schemas.meditation import MeditationCreate
+from app.schemas.meditation import MeditationCreate, MeditationUpdate
 
 
 class MeditationService:
@@ -98,9 +97,9 @@ class MeditationService:
             )
         return meditation
 
-    async def update(self, meditation_id: uuid.UUID, changes: dict[str, Any]) -> MeditationActivity:
+    async def update(self, meditation_id: uuid.UUID, payload: MeditationUpdate) -> MeditationActivity:
         meditation = await self.get_by_id(meditation_id)
-        for field, value in changes.items():
+        for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(meditation, field, value)
 
         await self.db.commit()
