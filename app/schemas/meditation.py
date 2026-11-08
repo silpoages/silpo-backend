@@ -11,7 +11,7 @@ class MeditationCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(min_length=1, max_length=300)
     audio_url: str = Field(min_length=1)
-    max_duration_seconds: int = Field(gt=0)
+    max_duration_seconds: int = Field(gt=0, le=2_147_483_647)
     enabled: bool = True
 
 
@@ -21,7 +21,7 @@ class MeditationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = Field(default=None, min_length=1, max_length=300)
     audio_url: str | None = Field(default=None, min_length=1)
-    max_duration_seconds: int | None = Field(default=None, gt=0)
+    max_duration_seconds: int | None = Field(default=None, gt=0, le=2_147_483_647)
     enabled: bool | None = None
 
     @model_validator(mode="after")

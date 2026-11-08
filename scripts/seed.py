@@ -65,11 +65,11 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        existing = await db.scalar(
-            select(model)
-            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
-            .limit(1)
-        )
+        query = select(model).where(model.name == name)
+        # Hidden and soft-deleted meditations still count as seeded.
+        if model is not MeditationActivity:
+            query = query.where(model.enabled.is_(True), model.deleted_at.is_(None))
+        existing = await db.scalar(query.limit(1))
         if existing is not None:
             if isinstance(existing, MeditationActivity) and existing.description == "":
                 existing.description = configuration["description"]
