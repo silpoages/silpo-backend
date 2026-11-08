@@ -97,7 +97,9 @@ class MeditationService:
             )
         return meditation
 
-    async def update(self, meditation_id: uuid.UUID, payload: MeditationUpdate) -> MeditationActivity:
+    async def update(
+        self, meditation_id: uuid.UUID, payload: MeditationUpdate
+    ) -> MeditationActivity:
         meditation = await self.get_by_id(meditation_id)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(meditation, field, value)
