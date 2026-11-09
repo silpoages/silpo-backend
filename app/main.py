@@ -70,6 +70,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
     app.include_router(admin_daily_messages.router)
+    app.include_router(admin_dashboard.router)
 
     return app
 
