@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.activity import ActivityService
 from app.services.admin_dashboard import AdminDashboardService
+from app.services.daily_message import DailyMessageService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
@@ -76,3 +77,7 @@ def get_admin_dashboard_service(
     db: AsyncSession = Depends(get_session),
 ) -> AdminDashboardService:
     return AdminDashboardService(db)
+
+
+def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
+    return DailyMessageService(db)
