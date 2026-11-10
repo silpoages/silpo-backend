@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.achievement_catalog import ACHIEVEMENTS_BY_CODE
 from app.enums import Mood
 from app.models.achievement import Achievement
 from app.models.achievement_log import AchievementLog
@@ -17,6 +18,8 @@ from app.models.good_practice_log import GoodPracticeLog
 from app.models.mood_log import MoodLog
 from app.models.self_regulation_session import BreathingSession
 from app.models.user import User
+from app.services.achievement import available_achievement_filter
+from scripts.seed import ensure_default_achievements
 
 
 def _month_start() -> datetime:
@@ -27,9 +30,7 @@ def _month_start() -> datetime:
 async def _total_available_achievements(db_session: AsyncSession) -> int:
     # Conquistas são globais e o banco é compartilhado entre testes.
     total = await db_session.scalar(
-        select(func.count(Achievement.id)).where(
-            Achievement.enabled.is_(True), Achievement.deleted_at.is_(None)
-        )
+        select(func.count(Achievement.id)).where(*available_achievement_filter())
     )
     return total or 0
 
@@ -174,17 +175,20 @@ async def test_journey_aggregates_current_month_of_authenticated_user_only(
         ]
     )
 
-    achievement = await _create_achievement(db_session)
+    await ensure_default_achievements(db_session)
+    first_step_id = ACHIEVEMENTS_BY_CODE["first_step"].id
+    knowing_myself_id = ACHIEVEMENTS_BY_CODE["knowing_myself"].id
+    # Fora do catálogo (sem regra de desbloqueio), desabilitadas ou excluídas não contam.
+    outside_catalog = await _create_achievement(db_session)
     disabled = await _create_achievement(db_session, enabled=False)
     deleted = await _create_achievement(db_session, deleted_at=datetime.now(UTC))
-    other_achievement = await _create_achievement(db_session)
     db_session.add_all(
         [
-            AchievementLog(user_id=user.id, achievement_id=achievement.id),
-            AchievementLog(user_id=user.id, achievement_id=achievement.id),
+            AchievementLog(user_id=user.id, achievement_id=first_step_id),
+            AchievementLog(user_id=user.id, achievement_id=outside_catalog.id),
             AchievementLog(user_id=user.id, achievement_id=disabled.id),
             AchievementLog(user_id=user.id, achievement_id=deleted.id),
-            AchievementLog(user_id=other.id, achievement_id=other_achievement.id),
+            AchievementLog(user_id=other.id, achievement_id=knowing_myself_id),
         ]
     )
     await db_session.commit()
