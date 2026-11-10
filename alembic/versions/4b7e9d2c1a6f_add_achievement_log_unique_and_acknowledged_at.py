@@ -1,7 +1,7 @@
 """add unique user/achievement and acknowledged_at to achievement_log
 
 Revision ID: 4b7e9d2c1a6f
-Revises: fa7c59947e7c
+Revises: d4e8a1b7c2f5
 Create Date: 2026-11-10 00:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "4b7e9d2c1a6f"
-down_revision: str | None = "fa7c59947e7c"
+down_revision: str | None = "d4e8a1b7c2f5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -2,16 +2,11 @@ import uuid
 from datetime import UTC, date, datetime
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import Mood
 from app.models.mood_log import MoodLog
 from app.services.achievement import AchievementService
-
-
-class MoodLogAlreadyLoggedError(Exception):
-    """O usuário já registrou uma emoção hoje — só uma por dia é permitida."""
 
 
 class MoodLogService:
@@ -21,30 +16,25 @@ class MoodLogService:
     async def get_today(self, user_id: uuid.UUID) -> MoodLog | None:
         today = datetime.now(UTC).date()
         result = await self.db.execute(
-            select(MoodLog).where(MoodLog.user_id == user_id, MoodLog.log_date == today)
+            select(MoodLog)
+            .where(MoodLog.user_id == user_id, MoodLog.log_date == today)
+            .order_by(MoodLog.posted_at.desc(), MoodLog.id)
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
     async def create(self, user_id: uuid.UUID, mood: Mood) -> MoodLog:
-        today = datetime.now(UTC).date()
-
-        if await self.get_today(user_id) is not None:
-            raise MoodLogAlreadyLoggedError
+        now = datetime.now(UTC)
 
         mood_log = MoodLog()
         mood_log.user_id = user_id
         mood_log.mood = mood
-        mood_log.log_date = today
-        mood_log.posted_at = datetime.now(UTC)
+        mood_log.log_date = now.date()
+        mood_log.posted_at = now
 
         self.db.add(mood_log)
 
-        try:
-            await self.db.commit()
-        except IntegrityError as exc:
-            await self.db.rollback()
-            raise MoodLogAlreadyLoggedError from exc
-
+        await self.db.commit()
         await self.db.refresh(mood_log)
         await AchievementService(self.db).evaluate_after_action(user_id)
         return mood_log

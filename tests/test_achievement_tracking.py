@@ -78,7 +78,7 @@ async def _unlocked_codes(db_session: AsyncSession, user_id: uuid.UUID) -> set[s
 async def _add_moods(
     db_session: AsyncSession, user_id: uuid.UUID, moods: list[Mood]
 ) -> list[MoodLog]:
-    # Uma emoção por dia (uq_mood_log_user_date): continua depois do último dia já usado.
+    # Cada emoção num dia novo, depois do último já usado pelo usuário.
     last_day = await db_session.scalar(
         select(func.max(MoodLog.log_date)).where(MoodLog.user_id == user_id)
     )
@@ -212,6 +212,28 @@ async def test_seven_distinct_days_unlock_knowing_myself(
     assert "knowing_myself" in await _unlocked_codes(db_session, user.id)
     progress = await service.get_progress(user.id)
     assert progress[AchievementRule.MOOD_DAYS] == 7
+
+
+async def test_several_moods_on_the_same_day_count_as_one_date(
+    db_session: AsyncSession, create_user: CreateUser
+) -> None:
+    user = await create_user()
+    same_day = date(2026, 5, 1)
+    db_session.add_all(
+        MoodLog(user_id=user.id, mood=mood, log_date=same_day)
+        for mood in [Mood.BEM, Mood.TRISTE, Mood.FELIZ, Mood.BEM, Mood.ANSIOSO, Mood.BEM, Mood.BEM]
+    )
+    await db_session.commit()
+    service = AchievementService(db_session)
+
+    await service.evaluate(user.id)
+
+    progress = await service.get_progress(user.id)
+    assert progress[AchievementRule.MOOD_LOGS] == 7
+    assert progress[AchievementRule.MOOD_DAYS] == 1
+    unlocked = await _unlocked_codes(db_session, user.id)
+    assert "knowing_myself" not in unlocked
+    assert {"first_step", "all_emotions_matter"} <= unlocked
 
 
 async def test_three_distinct_moods_unlock_all_emotions_matter(
