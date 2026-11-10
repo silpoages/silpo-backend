@@ -369,16 +369,37 @@ async def test_database_failure_removes_uploaded_audio(
     admin_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def failing_create(self: MeditationService, payload: Any) -> MeditationActivity:
+    async def failing_insert(self: MeditationService, payload: Any) -> MeditationActivity:
         raise RuntimeError("database is down")
 
-    monkeypatch.setattr(MeditationService, "create", failing_create)
+    monkeypatch.setattr(MeditationService, "_insert", failing_insert)
 
     with pytest.raises(RuntimeError, match="database is down"):
         await client.post(URL, data=form_data(marker), files=audio_file(), headers=admin_headers)
 
     assert stored_files(local_storage) == []
     assert await find_by_name(db_session, marker) == []
+
+
+async def test_failure_after_commit_keeps_uploaded_audio(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    local_storage: LocalAudioStorage,
+    marker: str,
+    admin_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def failing_refresh(self: AsyncSession, instance: Any, *args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("connection lost after commit")
+
+    monkeypatch.setattr(AsyncSession, "refresh", failing_refresh)
+
+    with pytest.raises(RuntimeError, match="connection lost after commit"):
+        await client.post(URL, data=form_data(marker), files=audio_file(), headers=admin_headers)
+
+    [meditation] = await find_by_name(db_session, marker)
+    [stored] = stored_files(local_storage)
+    assert meditation.audio_url.endswith(f"/media/meditations/{stored.name}")
 
 
 async def test_storage_failure_leaves_no_record(

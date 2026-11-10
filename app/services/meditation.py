@@ -31,6 +31,11 @@ class MeditationService:
         self.storage = storage
 
     async def create(self, payload: MeditationCreate) -> MeditationActivity:
+        meditation = await self._insert(payload)
+        await self.db.refresh(meditation)
+        return meditation
+
+    async def _insert(self, payload: MeditationCreate) -> MeditationActivity:
         meditation = MeditationActivity(
             name=payload.name,
             description=payload.description,
@@ -40,7 +45,6 @@ class MeditationService:
         )
         self.db.add(meditation)
         await self.db.commit()
-        await self.db.refresh(meditation)
         return meditation
 
     async def create_with_audio(self, form: MeditationBase, audio: bytes) -> MeditationActivity:
@@ -51,8 +55,10 @@ class MeditationService:
         await self.storage.save(key, audio)
 
         payload = MeditationCreate(**form.model_dump(), audio_url=build_audio_url(key))
+        # Only undo the upload while the record isn't committed yet: once the commit succeeds
+        # the row points at this file, so a later failure (e.g. on refresh) must keep it.
         try:
-            return await self.create(payload)
+            meditation = await self._insert(payload)
         except BaseException:
             await self.db.rollback()
             try:
@@ -60,6 +66,9 @@ class MeditationService:
             except Exception:
                 logger.exception("Failed to delete orphaned meditation audio %s", key)
             raise
+
+        await self.db.refresh(meditation)
+        return meditation
 
     async def list_enabled(self) -> list[MeditationActivity]:
         result = await self.db.execute(
