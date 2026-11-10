@@ -13,6 +13,7 @@ from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
 from app.services.journey import JourneyService
+from app.services.meditation import MeditationService
 from app.services.mood_log import MoodLogService
 from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
@@ -74,3 +75,7 @@ async def get_current_admin(
 
 def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
     return DailyMessageService(db)
+
+
+def get_meditation_service(db: AsyncSession = Depends(get_session)) -> MeditationService:
+    return MeditationService(db)
