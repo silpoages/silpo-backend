@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -5,13 +6,30 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.meditation_activity import MeditationActivity
-from app.schemas.meditation import MeditationCreate, MeditationUpdate
+from app.schemas.meditation import MeditationBase, MeditationCreate, MeditationUpdate
+from app.services.audio_storage import AudioStorage
+
+logger = logging.getLogger(__name__)
+
+MEDITATION_AUDIO_ROUTE_PREFIX = "/media/meditations"
+
+
+def build_audio_key() -> str:
+    # Random, unguessable name; never derived from the client-supplied filename.
+    return f"{uuid.uuid4().hex}.mp3"
+
+
+def build_audio_url(key: str) -> str:
+    base_url = get_settings().api_base_url.rstrip("/")
+    return f"{base_url}{MEDITATION_AUDIO_ROUTE_PREFIX}/{key}"
 
 
 class MeditationService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, storage: AudioStorage | None = None) -> None:
         self.db = db
+        self.storage = storage
 
     async def create(self, payload: MeditationCreate) -> MeditationActivity:
         meditation = MeditationActivity(
@@ -25,6 +43,27 @@ class MeditationService:
         await self.db.commit()
         await self.db.refresh(meditation)
         return meditation
+
+    async def create_with_audio(self, form: MeditationBase, audio: bytes) -> MeditationActivity:
+        if self.storage is None:
+            raise RuntimeError("MeditationService needs an AudioStorage to upload audio")
+
+        key = build_audio_key()
+        # Store the file first: if this fails nothing has been written to the database yet.
+        await self.storage.save(key, audio)
+
+        payload = MeditationCreate(**form.model_dump(), audio_url=build_audio_url(key))
+        try:
+            return await self.create(payload)
+        except BaseException:
+            # The record didn't make it to the database, so the file would be an orphan.
+            await self.db.rollback()
+            try:
+                await self.storage.delete(key)
+            except Exception:
+                # Don't let a cleanup failure hide the original error.
+                logger.exception("Failed to delete orphaned meditation audio %s", key)
+            raise
 
     async def list_enabled(self) -> list[MeditationActivity]:
         result = await self.db.execute(

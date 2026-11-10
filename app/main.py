@@ -5,12 +5,14 @@ from app.api.routes import (
     activities,
     admin_daily_messages,
     admin_good_practices,
+    admin_meditations,
     admin_users,
     auth,
     emergency_contacts,
     good_practices,
     health,
     journey,
+    media,
     mood_logs,
     users,
 )
@@ -49,6 +51,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
     app.include_router(admin_daily_messages.router)
+    app.include_router(admin_meditations.router)
+    app.include_router(media.router)
 
     return app
 

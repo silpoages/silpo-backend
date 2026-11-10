@@ -43,11 +43,20 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-Silpo <onboarding@resend.dev>}
       API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
       WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
+      AUDIO_STORAGE_BACKEND: ${AUDIO_STORAGE_BACKEND:-local}
+      AUDIO_STORAGE_LOCAL_DIR: /app/media
+      AUDIO_S3_BUCKET: ${AUDIO_S3_BUCKET:-}
+      AUDIO_S3_PREFIX: ${AUDIO_S3_PREFIX:-meditations/}
+      AUDIO_S3_REGION: ${AUDIO_S3_REGION:-us-east-2}
     ports:
       - '${API_PORT:-8000}:8000'
+    volumes:
+      # Uploaded meditation MP3s (AUDIO_STORAGE_BACKEND=local), kept across restarts.
+      - media_data:/app/media
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  media_data:
