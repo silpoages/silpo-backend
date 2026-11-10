@@ -20,6 +20,7 @@ from app.schemas.activity import (
     MeditationActivityRead,
     SelfRegulationActivityRead,
 )
+from app.services.achievement import AchievementService
 
 
 class ActivityService:
@@ -119,6 +120,7 @@ class ActivityService:
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
+        await AchievementService(self.db).evaluate_after_action(user_id)
         return session
 
     async def _load_enabled(

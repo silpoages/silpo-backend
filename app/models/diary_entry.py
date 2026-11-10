@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,13 +11,16 @@ from app.db.base import Base
 class DiaryEntry(Base):
     __tablename__ = "diary_entry"
 
+    __table_args__ = (Index("ix_diary_entry_user_id_entry_date", "user_id", "entry_date"),)
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True
     )
-    mood_log_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("mood_log.id"), nullable=False, index=True
+    mood_log_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mood_log.id"), nullable=True, index=True
     )
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False)
     note: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
