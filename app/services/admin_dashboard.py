@@ -4,10 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import ActivityType
-from app.models.activity import Activity
 from app.models.activity_session import ActivitySession
 from app.models.diary_entry import DiaryEntry
-from app.models.good_practice import GoodPractice
 from app.models.good_practice_log import GoodPracticeLog
 from app.schemas.admin_dashboard import DashboardActivityRead
 
@@ -20,38 +18,27 @@ class AdminDashboardService:
         self,
         period_days: int,
     ) -> list[DashboardActivityRead]:
-        end_at = datetime.now(UTC)
-        start_at = end_at - timedelta(days=period_days)
+        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        start_at = today_start - timedelta(days=period_days - 1)
+
+        end_at = today_start + timedelta(days=1)
 
         activity_result = await self.db.execute(
             select(
                 ActivitySession.type,
                 func.count(ActivitySession.id),
             )
-            .join(
-                Activity,
-                Activity.id == ActivitySession.activity_id,
-            )
             .where(
                 ActivitySession.posted_at >= start_at,
                 ActivitySession.posted_at <= end_at,
-                Activity.enabled.is_(True),
-                Activity.deleted_at.is_(None),
             )
             .group_by(ActivitySession.type)
         )
 
         good_practice_result = await self.db.execute(
-            select(func.count(GoodPracticeLog.id))
-            .join(
-                GoodPractice,
-                GoodPractice.id == GoodPracticeLog.good_practice_id,
-            )
-            .where(
+            select(func.count(GoodPracticeLog.id)).where(
                 GoodPracticeLog.posted_at >= start_at,
                 GoodPracticeLog.posted_at <= end_at,
-                GoodPractice.enabled.is_(True),
-                GoodPractice.deleted_at.is_(None),
             )
         )
 
