@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
+from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
 from app.services.daily_message import DailyMessageService
 from app.services.email_confirmation import EmailConfirmationService
@@ -20,6 +21,10 @@ from app.services.user import UserService
 DbSession = AsyncGenerator[AsyncSession, None]
 
 get_session = get_db
+
+
+def get_achievement_service(db: AsyncSession = Depends(get_session)) -> AchievementService:
+    return AchievementService(db)
 
 
 def get_activity_service(db: AsyncSession = Depends(get_session)) -> ActivityService:
