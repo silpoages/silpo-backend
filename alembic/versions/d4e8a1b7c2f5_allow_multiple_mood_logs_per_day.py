@@ -1,7 +1,7 @@
 """allow multiple mood logs per user per day
 
 Revision ID: d4e8a1b7c2f5
-Revises: c7e2f4a9d1b3
+Revises: fa7c59947e7c
 Create Date: 2026-11-05 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d4e8a1b7c2f5"
-down_revision: str | None = "c7e2f4a9d1b3"
+down_revision: str | None = "fa7c59947e7c"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

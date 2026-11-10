@@ -87,20 +87,15 @@ async def test_create_mood_log_with_ansioso(
 
 
 @pytest.mark.asyncio
-async def test_create_mood_log_twice_same_day_conflicts(
+async def test_create_mood_log_twice_same_day_creates_two_records(
     client: AsyncClient,
     create_user: Callable[..., Awaitable[User]],
     auth_headers: Callable[[uuid.UUID], dict[str, str]],
 ) -> None:
-    user = await create_user()
-    headers = auth_headers(user.id)
     headers = auth_headers((await create_user()).id)
 
     first = await client.post("/mood-logs", headers=headers, json={"mood": "FELIZ"})
-    assert first.status_code == 201
-
     second = await client.post("/mood-logs", headers=headers, json={"mood": "TRISTE"})
-    assert second.status_code == 409
 
     assert (first.status_code, second.status_code) == (201, 201)
     assert first.json()["id"] != second.json()["id"]
