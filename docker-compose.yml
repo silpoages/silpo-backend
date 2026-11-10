@@ -51,7 +51,6 @@ services:
     ports:
       - '${API_PORT:-8000}:8000'
     volumes:
-      # Uploaded meditation MP3s (AUDIO_STORAGE_BACKEND=local), kept across restarts.
       - media_data:/app/media
     depends_on:
       db:

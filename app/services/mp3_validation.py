@@ -7,7 +7,6 @@ ALLOWED_AUDIO_CONTENT_TYPES = frozenset(
     {"audio/mpeg", "audio/mp3", "audio/mpeg3", "audio/x-mpeg-3", "application/octet-stream"}
 )
 _READ_CHUNK_SIZE = 1024 * 1024
-# How many bytes past an ID3v2 tag to scan for the first MPEG frame (some encoders pad).
 _FRAME_SEARCH_WINDOW = 64 * 1024
 
 
@@ -16,12 +15,6 @@ def _unsupported(detail: str) -> HTTPException:
 
 
 async def read_validated_mp3(upload: UploadFile) -> bytes:
-    """Read an uploaded file and make sure it's a real MP3 no bigger than 20 MB.
-
-    Checks the declared extension and content type, then the bytes themselves — the
-    extension and Content-Type are client-controlled, so only the content check actually
-    proves the file is MP3.
-    """
     filename = upload.filename or ""
     if PurePath(filename).suffix.lower() != ".mp3":
         raise _unsupported("Audio file must have the .mp3 extension")
@@ -59,13 +52,10 @@ def _too_large() -> HTTPException:
 
 def is_mp3(data: bytes) -> bool:
     offset = 0
-    # Without an ID3v2 tag the MPEG stream must start at byte 0; after a tag, some encoders
-    # pad, so the first frame is searched for within a small window.
     search_window = 1
     if data[:3] == b"ID3":
         if len(data) < 10:
             return False
-        # ID3v2 tag size is a 28-bit "syncsafe" integer (7 bits per byte).
         size_bytes = data[6:10]
         if any(byte & 0x80 for byte in size_bytes):
             return False
@@ -80,8 +70,6 @@ def is_mp3(data: bytes) -> bool:
         if not _is_frame_header(data, position):
             continue
         next_position = position + _frame_length(data, position)
-        # When the file is long enough to hold a second frame, require it too: a lone
-        # 0xFFEx pair shows up by chance in arbitrary binary data far too often.
         if next_position + 4 <= len(data):
             return _is_frame_header(data, next_position)
         return True
@@ -89,7 +77,6 @@ def is_mp3(data: bytes) -> bool:
 
 
 _BITRATES_KBPS = {
-    # (version_is_mpeg1, layer) -> bitrate table indexed by bitrate_index
     (True, 1): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
     (True, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
     (True, 3): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
@@ -98,9 +85,9 @@ _BITRATES_KBPS = {
     (False, 3): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
 }
 _SAMPLE_RATES = {
-    0b11: [44100, 48000, 32000],  # MPEG-1
-    0b10: [22050, 24000, 16000],  # MPEG-2
-    0b00: [11025, 12000, 8000],  # MPEG-2.5
+    0b11: [44100, 48000, 32000],
+    0b10: [22050, 24000, 16000],
+    0b00: [11025, 12000, 8000],
 }
 
 
@@ -119,7 +106,7 @@ def _parse_header(data: bytes, position: int) -> tuple[int, int, int, int, int] 
         return None
     if bitrate_index in (0b0000, 0b1111) or sample_rate_index == 0b11:
         return None
-    if b3 & 0b11 == 0b10:  # reserved emphasis
+    if b3 & 0b11 == 0b10:
         return None
     layer = 4 - layer_bits
     return version_bits, layer, bitrate_index, sample_rate_index, padding

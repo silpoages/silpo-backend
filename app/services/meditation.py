@@ -17,7 +17,6 @@ MEDITATION_AUDIO_ROUTE_PREFIX = "/media/meditations"
 
 
 def build_audio_key() -> str:
-    # Random, unguessable name; never derived from the client-supplied filename.
     return f"{uuid.uuid4().hex}.mp3"
 
 
@@ -49,19 +48,16 @@ class MeditationService:
             raise RuntimeError("MeditationService needs an AudioStorage to upload audio")
 
         key = build_audio_key()
-        # Store the file first: if this fails nothing has been written to the database yet.
         await self.storage.save(key, audio)
 
         payload = MeditationCreate(**form.model_dump(), audio_url=build_audio_url(key))
         try:
             return await self.create(payload)
         except BaseException:
-            # The record didn't make it to the database, so the file would be an orphan.
             await self.db.rollback()
             try:
                 await self.storage.delete(key)
             except Exception:
-                # Don't let a cleanup failure hide the original error.
                 logger.exception("Failed to delete orphaned meditation audio %s", key)
             raise
 

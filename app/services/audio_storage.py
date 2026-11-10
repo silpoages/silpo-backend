@@ -37,8 +37,6 @@ class LocalAudioStorage:
 
     def _save_sync(self, key: str, data: bytes) -> None:
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        # Write to a temp file in the same directory and rename it into place, so a crash
-        # mid-write never leaves a truncated file behind under the final name.
         fd, tmp_path = tempfile.mkstemp(dir=self.base_dir, suffix=".part")
         try:
             with os.fdopen(fd, "wb") as tmp_file:
@@ -108,7 +106,6 @@ def build_audio_storage(settings: Settings) -> AudioStorage:
     if settings.audio_storage_backend == AudioStorageBackend.S3:
         if not settings.audio_s3_bucket:
             raise RuntimeError("AUDIO_S3_BUCKET must be set when AUDIO_STORAGE_BACKEND=s3")
-        # Credentials come from the default AWS chain (the ECS task role in production).
         client = boto3.client("s3", region_name=settings.audio_s3_region)
         return S3AudioStorage(
             bucket=settings.audio_s3_bucket,

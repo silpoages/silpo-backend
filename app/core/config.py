@@ -46,12 +46,6 @@ class Settings(BaseSettings):
     # both web and mobile.
     web_app_url: str = "http://localhost:3000"
 
-    # Where uploaded meditation MP3s are stored. "local" keeps them under
-    # audio_storage_local_dir (mounted as a named volume in docker-compose so they survive
-    # restarts); "s3" is required in real deployments, since ECS Fargate's disk is ephemeral.
-    # Either way the stored audio_url points at the API's /media/meditations/{file} route,
-    # which streams the local file or redirects to a short-lived presigned S3 URL, so the
-    # bucket can stay private and the URL saved in the database never expires.
     audio_storage_backend: AudioStorageBackend = AudioStorageBackend.LOCAL
     audio_storage_local_dir: str = "media"
     audio_s3_bucket: str = ""

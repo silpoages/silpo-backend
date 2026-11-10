@@ -20,8 +20,6 @@ def parse_meditation_form(
     max_duration_seconds: Annotated[str, Form(description="Duration in seconds")],
     enabled: Annotated[str, Form(description="Visibility in the app")] = "true",
 ) -> MeditationBase:
-    # FastAPI can't combine a Pydantic form model with a separate File field, so the text
-    # fields arrive as plain strings and are validated by the same schema used elsewhere.
     try:
         return MeditationBase(
             name=name,

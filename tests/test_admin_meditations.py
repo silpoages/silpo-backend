@@ -27,7 +27,6 @@ from app.services.mp3_validation import MAX_AUDIO_SIZE_BYTES, is_mp3
 
 URL = "/admin/meditations"
 
-# MPEG-1 Layer III, 128 kbps, 44.1 kHz, no padding: 144 * 128000 / 44100 = 417 bytes/frame.
 _FRAME_HEADER = bytes([0xFF, 0xFB, 0x90, 0x00])
 _FRAME_LENGTH = 417
 
@@ -55,7 +54,6 @@ def local_storage(tmp_path: Path) -> Iterator[LocalAudioStorage]:
 
 @pytest_asyncio.fixture
 async def marker(db_session: AsyncSession) -> AsyncGenerator[str, None]:
-    """Unique name prefix; every meditation created with it is deleted afterwards."""
     value = f"Meditação {uuid.uuid4().hex[:12]}"
     yield value
     ids = (
@@ -111,9 +109,6 @@ def stored_files(storage: LocalAudioStorage) -> list[Path]:
     return list(storage.base_dir.iterdir())
 
 
-# --- permissions --------------------------------------------------------------
-
-
 async def test_create_meditation_requires_authentication(
     client: AsyncClient, local_storage: LocalAudioStorage, marker: str
 ) -> None:
@@ -138,9 +133,6 @@ async def test_create_meditation_forbidden_for_non_admin(
 
     assert response.status_code == 403
     assert stored_files(local_storage) == []
-
-
-# --- success ------------------------------------------------------------------
 
 
 async def test_create_meditation_persists_record_and_audio(
@@ -218,7 +210,6 @@ async def test_created_meditation_audio_survives_restart(
     )
     path = created.json()["audio_url"].removeprefix("http://localhost:8000")
 
-    # A fresh storage instance over the same directory stands in for a restarted process.
     restarted = LocalAudioStorage(local_storage.base_dir)
     app.dependency_overrides[get_audio_storage] = lambda: restarted
 
@@ -258,9 +249,6 @@ async def test_create_meditation_accepts_file_at_size_limit(
     )
 
     assert response.status_code == 201
-
-
-# --- file validation ------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -311,9 +299,6 @@ async def test_create_meditation_requires_audio(
 
     assert response.status_code == 422
     assert await find_by_name(db_session, marker) == []
-
-
-# --- form validation ------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -376,9 +361,6 @@ async def test_create_meditation_defaults_to_enabled(
     assert response.json()["enabled"] is True
 
 
-# --- failure handling -----------------------------------------------------------
-
-
 async def test_database_failure_removes_uploaded_audio(
     client: AsyncClient,
     db_session: AsyncSession,
@@ -418,9 +400,6 @@ async def test_storage_failure_leaves_no_record(
     assert await find_by_name(db_session, marker) == []
 
 
-# --- audio route ------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "key",
     [
@@ -436,9 +415,6 @@ async def test_get_meditation_audio_returns_404_for_unknown_key(
     response = await client.get(f"/media/meditations/{key}")
 
     assert response.status_code == 404
-
-
-# --- S3 storage -------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -503,9 +479,6 @@ def test_build_audio_storage_requires_bucket_for_s3(monkeypatch: pytest.MonkeyPa
 
     with pytest.raises(RuntimeError, match="AUDIO_S3_BUCKET"):
         build_audio_storage(Settings(audio_storage_backend="s3", audio_s3_bucket=""))
-
-
-# --- MP3 detection ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(

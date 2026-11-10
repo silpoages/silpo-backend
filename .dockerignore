@@ -9,5 +9,4 @@ __pycache__
 .ruff_cache
 tests
 
-# Uploaded meditation audio (local storage)
 media/

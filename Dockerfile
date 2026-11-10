@@ -27,7 +27,6 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /app /app
 
-# Owned by "app" so a named volume mounted here (see docker-compose.yml) is writable by it.
 RUN mkdir -p /app/media && chown app:app /app/media
 
 ENV PATH="/app/.venv/bin:$PATH" \
