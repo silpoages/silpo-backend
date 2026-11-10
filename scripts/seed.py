@@ -295,6 +295,7 @@ async def seed() -> None:
             DiaryEntry(
                 user_id=paciente1_id,
                 mood_log_id=mood_log_id,
+                entry_date=now.date(),
                 note="Hoje consegui ir no café perto de casa. Fiquei feliz e tomei um capuccino.",
             ),
         ]
