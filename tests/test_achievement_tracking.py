@@ -167,7 +167,13 @@ async def _add_diary_entries(
 ) -> list[DiaryEntry]:
     mood_logs = await _add_moods(db_session, user_id, [Mood.BEM] * count)
     entries = [
-        DiaryEntry(user_id=user_id, mood_log_id=log.id, note="texto privado", **overrides)
+        DiaryEntry(
+            user_id=user_id,
+            mood_log_id=log.id,
+            entry_date=log.log_date,
+            note="texto privado",
+            **overrides,
+        )
         for log in mood_logs
     ]
     db_session.add_all(entries)
