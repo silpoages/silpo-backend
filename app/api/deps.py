@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
+from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
@@ -82,5 +83,8 @@ def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyM
     return DailyMessageService(db)
 
 
-def get_meditation_service(db: AsyncSession = Depends(get_session)) -> MeditationService:
-    return MeditationService(db)
+def get_meditation_service(
+    db: AsyncSession = Depends(get_session),
+    storage: AudioStorage = Depends(get_audio_storage),
+) -> MeditationService:
+    return MeditationService(db, storage)
