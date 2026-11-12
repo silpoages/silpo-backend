@@ -558,6 +558,7 @@ async def test_patch_meditation_failure_after_commit_keeps_new_audio(
     assert saved.audio_url != old_url
     assert stored_names(local_storage) == {key_from_url(saved.audio_url)}
 
+
 async def test_patch_meditation_returns_404_when_not_found(
     client: AsyncClient,
     local_storage: LocalAudioStorage,
@@ -631,6 +632,7 @@ async def test_patch_meditation_hides_and_shows_in_app(
     show = await client.patch(path, data={"enabled": "true"}, headers=admin_headers)
     assert show.status_code == 200
     assert str(meditation.id) in await app_ids()
+
 
 async def test_delete_meditation_soft_deletes_and_keeps_row_and_audio(
     client: AsyncClient,
