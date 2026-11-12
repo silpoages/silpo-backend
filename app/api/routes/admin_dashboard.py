@@ -1,6 +1,7 @@
-from typing import Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import AfterValidator
 
 from app.api.deps import get_admin_dashboard_service, get_current_admin
 from app.models.user import User
@@ -12,9 +13,16 @@ router = APIRouter(
     tags=["admin-dashboard"],
 )
 
-PeriodDays = Literal[7, 30, 90]
+ALLOWED_PERIOD_DAYS = (7, 30, 90)
 
-service: AdminDashboardService = Depends(get_admin_dashboard_service)
+
+def _validate_period_days(value: int) -> int:
+    if value not in ALLOWED_PERIOD_DAYS:
+        raise ValueError(f"period_days must be one of {ALLOWED_PERIOD_DAYS}")
+    return value
+
+
+PeriodDays = Annotated[int, AfterValidator(_validate_period_days)]
 
 
 @router.get(
@@ -23,11 +31,9 @@ service: AdminDashboardService = Depends(get_admin_dashboard_service)
     status_code=status.HTTP_200_OK,
 )
 async def get_dashboard_activities(
-    period_days: PeriodDays = Query(30),
+    period_days: Annotated[PeriodDays, Query()] = 30,
     current_admin: User = Depends(get_current_admin),
     service: AdminDashboardService = Depends(get_admin_dashboard_service),
 ) -> DashboardActivityResponse:
     activities = await service.get_activity_summary(period_days)
-    return DashboardActivityResponse(
-        top_activities=activities,
-    )
+    return DashboardActivityResponse(top_activities=activities)
