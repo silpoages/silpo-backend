@@ -11,6 +11,7 @@ from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
 from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
+from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService

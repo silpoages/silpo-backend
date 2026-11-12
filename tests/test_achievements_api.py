@@ -327,7 +327,7 @@ async def test_achievement_responses_never_expose_diary_content(
         DiaryEntry(
             user_id=user.id,
             mood_log_id=mood_log.id,
-            entry_date=mood_log.log_date,
+            entry_date=date(2026, 1, 1),
             note="segredo-do-diario",
             image_url="https://example.com/foto-privada.png",
         )
