@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 MEDITATION_AUDIO_ROUTE_PREFIX = "/media/meditations"
 
+_AUDIO_KEY_PATTERN = re.compile(r"^[0-9a-f]{32}\.mp3$")
+
 
 def build_audio_key() -> str:
     return f"{uuid.uuid4().hex}.mp3"
@@ -23,6 +26,14 @@ def build_audio_key() -> str:
 def build_audio_url(key: str) -> str:
     base_url = get_settings().api_base_url.rstrip("/")
     return f"{base_url}{MEDITATION_AUDIO_ROUTE_PREFIX}/{key}"
+
+
+def audio_key_from_url(audio_url: str) -> str | None:
+    prefix = f"{get_settings().api_base_url.rstrip('/')}{MEDITATION_AUDIO_ROUTE_PREFIX}/"
+    if not audio_url.startswith(prefix):
+        return None
+    key = audio_url.removeprefix(prefix)
+    return key if _AUDIO_KEY_PATTERN.fullmatch(key) else None
 
 
 class MeditationService:
@@ -151,6 +162,47 @@ class MeditationService:
         await self.db.commit()
         await self.db.refresh(meditation)
         return meditation
+
+    async def update_with_audio(
+        self,
+        meditation_id: uuid.UUID,
+        payload: MeditationUpdate,
+        audio: bytes | None,
+    ) -> MeditationActivity:
+        if audio is None:
+            return await self.update(meditation_id, payload)
+        if self.storage is None:
+            raise RuntimeError("MeditationService needs an AudioStorage to upload audio")
+
+        meditation = await self.get_by_id(meditation_id)
+        old_key = audio_key_from_url(meditation.audio_url)
+
+        new_key = build_audio_key()
+        await self.storage.save(new_key, audio)
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(meditation, field, value)
+        meditation.audio_url = build_audio_url(new_key)
+
+        try:
+            await self.db.commit()
+        except BaseException:
+            await self.db.rollback()
+            await self._delete_audio_quietly(new_key)
+            raise
+        if old_key is not None:
+            await self._delete_audio_quietly(old_key)
+
+        await self.db.refresh(meditation)
+        return meditation
+
+    async def _delete_audio_quietly(self, key: str) -> None:
+        if self.storage is None:
+            return
+        try:
+            await self.storage.delete(key)
+        except Exception:
+            logger.exception("Failed to delete meditation audio %s", key)
 
     async def delete(self, meditation_id: uuid.UUID) -> None:
         meditation = await self.get_by_id(meditation_id)
