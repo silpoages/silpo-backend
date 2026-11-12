@@ -1,12 +1,14 @@
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.percentages import to_percentages
 from app.enums import Gender, Role
 from app.models.user import User
+
+MINIMUM_AGE = 13
 
 AGE_RANGES: list[tuple[str, int, int | None]] = [
     ("13-17", 13, 17),
@@ -17,11 +19,24 @@ AGE_RANGES: list[tuple[str, int, int | None]] = [
     ("60+", 60, None),
 ]
 
-COUNTED_USERS = (
-    User.role == Role.USER,
-    User.enabled.is_(True),
-    User.deleted_at.is_(None),
-)
+
+def years_before(day: date, years: int) -> date:
+    # 29/02 vira 28/02 quando o ano de destino não é bissexto.
+    try:
+        return day.replace(year=day.year - years)
+    except ValueError:
+        return day.replace(year=day.year - years, day=28)
+
+
+def counted_users(today: date) -> tuple[ColumnElement[bool], ...]:
+    # Usuários sem birth_date entram; menores de 13 e datas no futuro ficam de fora.
+    latest_birth_date = years_before(today, MINIMUM_AGE)
+    return (
+        User.role == Role.USER,
+        User.enabled.is_(True),
+        User.deleted_at.is_(None),
+        or_(User.birth_date.is_(None), User.birth_date <= latest_birth_date),
+    )
 
 
 def calculate_age(birth_date: date, today: date) -> int:
@@ -43,18 +58,17 @@ class DashboardSummaryService:
     async def get_summary(self) -> dict[str, Any]:
         today = datetime.now(UTC).date()
         start_of_today = datetime.combine(today, time.min, tzinfo=UTC)
+        counted = counted_users(today)
 
-        total_users = await self.db.scalar(
-            select(func.count()).select_from(User).where(*COUNTED_USERS)
-        )
+        total_users = await self.db.scalar(select(func.count()).select_from(User).where(*counted))
         premium_active_users = await self.db.scalar(
             select(func.count())
             .select_from(User)
-            .where(*COUNTED_USERS, User.plan_end_date >= start_of_today)
+            .where(*counted, User.plan_end_date >= start_of_today)
         )
 
         age_counts = {label: 0 for label, _, _ in AGE_RANGES}
-        birth_dates = await self.db.scalars(select(User.birth_date).where(*COUNTED_USERS))
+        birth_dates = await self.db.scalars(select(User.birth_date).where(*counted))
         for birth_date in birth_dates:
             if birth_date is None:
                 continue
@@ -64,7 +78,7 @@ class DashboardSummaryService:
 
         gender_counts = dict.fromkeys(Gender, 0)
         gender_rows = await self.db.execute(
-            select(User.gender, func.count()).where(*COUNTED_USERS).group_by(User.gender)
+            select(User.gender, func.count()).where(*counted).group_by(User.gender)
         )
         for gender, count in gender_rows.all():
             gender_counts[gender] = count

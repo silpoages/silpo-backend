@@ -8,7 +8,7 @@ from httpx import AsyncClient
 
 from app.enums import Gender, Role
 from app.models.user import User
-from app.services.dashboard_summary import calculate_age, find_age_range
+from app.services.dashboard_summary import calculate_age, find_age_range, years_before
 
 URL = "/admin/dashboard/summary"
 
@@ -132,3 +132,47 @@ async def test_summary_returns_only_aggregated_data(
     assert user.email not in response.text
     assert sum(item["percentage"] for item in data["age_distribution"]) == pytest.approx(100)
     assert sum(item["percentage"] for item in data["gender_distribution"]) == pytest.approx(100)
+
+
+def test_years_before_handles_leap_day() -> None:
+    assert years_before(date(2026, 11, 12), 13) == date(2013, 11, 12)
+    assert years_before(date(2028, 2, 29), 13) == date(2015, 2, 28)
+
+
+async def test_summary_ignores_users_under_13_or_with_future_birth_date(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    headers = auth_headers(admin.id)
+    before = (await client.get(URL, headers=headers)).json()
+
+    today = datetime.now(UTC).date()
+    future = datetime.now(UTC) + timedelta(days=30)
+    await create_user(gender=Gender.FEMALE, birth_date=_years_ago(10), plan_end_date=future)
+    await create_user(
+        gender=Gender.MALE, birth_date=today + timedelta(days=30), plan_end_date=future
+    )
+    await create_user(gender=Gender.OTHER, birth_date=years_before(today, 13))
+
+    response = await client.get(URL, headers=headers)
+
+    assert response.status_code == 200
+    after = response.json()
+    assert after["total_users"] - before["total_users"] == 1
+    assert after["premium_active_users"] == before["premium_active_users"]
+
+    age_delta = _delta(
+        _counts(after["age_distribution"], "age_range"),
+        _counts(before["age_distribution"], "age_range"),
+    )
+    assert age_delta == {"13-17": 1, "18-24": 0, "25-34": 0, "35-44": 0, "45-59": 0, "60+": 0}
+
+    expected_genders = {gender.value: 0 for gender in Gender}
+    expected_genders[Gender.OTHER.value] = 1
+    gender_delta = _delta(
+        _counts(after["gender_distribution"], "gender"),
+        _counts(before["gender_distribution"], "gender"),
+    )
+    assert gender_delta == expected_genders
