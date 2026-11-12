@@ -7,6 +7,7 @@ from app.api.routes import (
     admin_good_practices,
     admin_users,
     auth,
+    daily_messages,
     emergency_contacts,
     good_practices,
     health,
@@ -49,6 +50,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
     app.include_router(admin_daily_messages.router)
+    app.include_router(daily_messages.router)
 
     return app
 

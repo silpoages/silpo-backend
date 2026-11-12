@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, time
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, func, select
@@ -70,3 +71,35 @@ class DailyMessageService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Daily message not found"
             )
         return daily_message
+
+    async def get_today(self) -> DailyMessage | None:
+        now = datetime.now(UTC)
+        start_of_today = datetime.combine(now.date(), time.min, tzinfo=UTC)
+        available = (DailyMessage.enabled.is_(True), DailyMessage.deleted_at.is_(None))
+
+        shown_today = await self.db.scalar(
+            select(DailyMessage)
+            .where(*available, DailyMessage.last_shown >= start_of_today)
+            .order_by(DailyMessage.last_shown.desc(), DailyMessage.id)
+            .limit(1)
+        )
+        if shown_today is not None:
+            return shown_today
+
+        next_message = await self.db.scalar(
+            select(DailyMessage)
+            .where(*available)
+            .order_by(
+                DailyMessage.last_shown.asc().nulls_first(),
+                DailyMessage.created_at,
+                DailyMessage.id,
+            )
+            .limit(1)
+        )
+        if next_message is None:
+            return None
+
+        next_message.last_shown = now
+        await self.db.commit()
+        await self.db.refresh(next_message)
+        return next_message
