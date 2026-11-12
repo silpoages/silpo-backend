@@ -9,12 +9,14 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
+from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
 from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
 from app.services.journey import JourneyService
+from app.services.meditation import MeditationService
 from app.services.mood_log import MoodLogService
 from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
@@ -80,6 +82,13 @@ async def get_current_admin(
 
 def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
     return DailyMessageService(db)
+
+
+def get_meditation_service(
+    db: AsyncSession = Depends(get_session),
+    storage: AudioStorage = Depends(get_audio_storage),
+) -> MeditationService:
+    return MeditationService(db, storage)
 
 
 def get_diary_entry_service(db: AsyncSession = Depends(get_session)) -> DiaryEntryService:
