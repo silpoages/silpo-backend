@@ -8,7 +8,6 @@ from app.api.routes import (
     admin_good_practices,
     admin_meditations,
     admin_users,
-    admin_meditations,
     auth,
     emergency_contacts,
     good_practices,

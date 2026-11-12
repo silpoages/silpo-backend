@@ -545,28 +545,18 @@ async def test_patch_meditation_failure_after_commit_keeps_new_audio(
     meditation, old_url, _ = await seed_meditation(db_session, local_storage)
     meditation_id = meditation.id
 
-    async def failing_refresh(
-        self: AsyncSession, instance: Any, *args: Any, **kwargs: Any
-    ) -> None:
+    async def failing_refresh(self: AsyncSession, instance: Any, *args: Any, **kwargs: Any) -> None:
         raise RuntimeError("connection lost after commit")
 
     monkeypatch.setattr(AsyncSession, "refresh", failing_refresh)
 
     with pytest.raises(RuntimeError, match="connection lost after commit"):
-        await client.patch(
-            f"{URL}/{meditation_id}", files=audio_file(), headers=admin_headers
-        )
+        await client.patch(f"{URL}/{meditation_id}", files=audio_file(), headers=admin_headers)
 
     monkeypatch.undo()
     saved = await fetch_meditation(db_session, meditation_id)
     assert saved.audio_url != old_url
     assert stored_names(local_storage) == {key_from_url(saved.audio_url)}
-
-
-# ---------------------------------------------------------------------------
-# PATCH: not found / visibility in the app
-# ---------------------------------------------------------------------------
-
 
 async def test_patch_meditation_returns_404_when_not_found(
     client: AsyncClient,
@@ -641,12 +631,6 @@ async def test_patch_meditation_hides_and_shows_in_app(
     show = await client.patch(path, data={"enabled": "true"}, headers=admin_headers)
     assert show.status_code == 200
     assert str(meditation.id) in await app_ids()
-
-
-# ---------------------------------------------------------------------------
-# DELETE
-# ---------------------------------------------------------------------------
-
 
 async def test_delete_meditation_soft_deletes_and_keeps_row_and_audio(
     client: AsyncClient,
