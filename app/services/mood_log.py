@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import Mood
 from app.models.mood_log import MoodLog
+from app.services.achievement import AchievementService
 
 
 class MoodLogService:
@@ -35,6 +36,7 @@ class MoodLogService:
 
         await self.db.commit()
         await self.db.refresh(mood_log)
+        await AchievementService(self.db).evaluate_after_action(user_id)
         return mood_log
 
     async def list_by_date(self, user_id: uuid.UUID, log_date: date | None) -> list[MoodLog]:
