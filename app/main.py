@@ -5,6 +5,7 @@ from app.api.routes import (
     achievements,
     activities,
     admin_daily_messages,
+    admin_dashboard,
     admin_dashboard_moods,
     admin_good_practices,
     admin_meditations,
@@ -19,6 +20,26 @@ from app.api.routes import (
     users,
 )
 from app.core.config import Settings, get_settings
+
+app = FastAPI(title="Silpo Backend")
+
+# Sem cookies/sessão (auth é via Bearer token no header), então liberar todas as
+# origens não abre risco de CSRF; permite o app mobile rodar em modo web contra
+# uma API local em outra origem (ex. Expo em :8081, API em :8000).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(health.router)
+app.include_router(mood_logs.router)
+app.include_router(users.router)
+app.include_router(auth.router)
+app.include_router(emergency_contacts.router)
+app.include_router(activities.router)
+app.include_router(admin_dashboard.router)
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -57,6 +78,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_daily_messages.router)
     app.include_router(admin_meditations.router)
     app.include_router(media.router)
+    app.include_router(admin_dashboard.router)
 
     return app
 
