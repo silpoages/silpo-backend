@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.enums import EmailProvider, Environment
+from app.enums import AudioStorageBackend, EmailProvider, Environment
 
 
 class Settings(BaseSettings):
@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # mobile app registers this same domain as a universal/app link, so one URL works for
     # both web and mobile.
     web_app_url: str = "http://localhost:3000"
+
+    audio_storage_backend: AudioStorageBackend = AudioStorageBackend.LOCAL
+    audio_storage_local_dir: str = "media"
+    audio_s3_bucket: str = ""
+    audio_s3_prefix: str = "meditations/"
+    audio_s3_region: str = "us-east-2"
+    audio_s3_presigned_url_expire_seconds: int = 60 * 60
 
     @property
     def database_url(self) -> str:

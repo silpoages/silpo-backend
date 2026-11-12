@@ -219,3 +219,5 @@ __marimo__/
 
 # Node (Husky git hooks tooling only — no JS app code lives here)
 node_modules/
+
+media/

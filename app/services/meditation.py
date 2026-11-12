@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -5,15 +6,36 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.meditation_activity import MeditationActivity
-from app.schemas.meditation import MeditationCreate, MeditationUpdate
+from app.schemas.meditation import MeditationBase, MeditationCreate, MeditationUpdate
+from app.services.audio_storage import AudioStorage
+
+logger = logging.getLogger(__name__)
+
+MEDITATION_AUDIO_ROUTE_PREFIX = "/media/meditations"
+
+
+def build_audio_key() -> str:
+    return f"{uuid.uuid4().hex}.mp3"
+
+
+def build_audio_url(key: str) -> str:
+    base_url = get_settings().api_base_url.rstrip("/")
+    return f"{base_url}{MEDITATION_AUDIO_ROUTE_PREFIX}/{key}"
 
 
 class MeditationService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, storage: AudioStorage | None = None) -> None:
         self.db = db
+        self.storage = storage
 
     async def create(self, payload: MeditationCreate) -> MeditationActivity:
+        meditation = await self._insert(payload)
+        await self.db.refresh(meditation)
+        return meditation
+
+    async def _insert(self, payload: MeditationCreate) -> MeditationActivity:
         meditation = MeditationActivity(
             name=payload.name,
             description=payload.description,
@@ -23,6 +45,28 @@ class MeditationService:
         )
         self.db.add(meditation)
         await self.db.commit()
+        return meditation
+
+    async def create_with_audio(self, form: MeditationBase, audio: bytes) -> MeditationActivity:
+        if self.storage is None:
+            raise RuntimeError("MeditationService needs an AudioStorage to upload audio")
+
+        key = build_audio_key()
+        await self.storage.save(key, audio)
+
+        payload = MeditationCreate(**form.model_dump(), audio_url=build_audio_url(key))
+        # Only undo the upload while the record isn't committed yet: once the commit succeeds
+        # the row points at this file, so a later failure (e.g. on refresh) must keep it.
+        try:
+            meditation = await self._insert(payload)
+        except BaseException:
+            await self.db.rollback()
+            try:
+                await self.storage.delete(key)
+            except Exception:
+                logger.exception("Failed to delete orphaned meditation audio %s", key)
+            raise
+
         await self.db.refresh(meditation)
         return meditation
 

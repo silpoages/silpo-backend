@@ -3,9 +3,11 @@ from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.enums import Mood
+from app.models.mood_log import MoodLog
 
 
 class DiaryEntry(Base):
@@ -28,3 +30,9 @@ class DiaryEntry(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    mood_log: Mapped[MoodLog | None] = relationship(lazy="joined")
+
+    @property
+    def mood(self) -> Mood | None:
+        return self.mood_log.mood if self.mood_log is not None else None
