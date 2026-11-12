@@ -1,3 +1,5 @@
+from .achievement_category import AchievementCategory as AchievementCategory
+from .achievement_rule import AchievementRule as AchievementRule
 from .activity_type import ActivityType as ActivityType
 from .email_provider import EmailProvider as EmailProvider
 from .environment import Environment as Environment

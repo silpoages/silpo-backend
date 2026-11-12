@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    achievements,
     activities,
+    admin_daily_messages,
     admin_dashboard_moods,
     admin_good_practices,
     admin_users,
@@ -46,9 +48,11 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(activities.router)
     app.include_router(good_practices.router)
     app.include_router(journey.router)
+    app.include_router(achievements.router)
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
     app.include_router(admin_dashboard_moods.router)
+    app.include_router(admin_daily_messages.router)
 
     return app
 

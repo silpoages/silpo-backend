@@ -87,19 +87,53 @@ async def test_create_mood_log_with_ansioso(
 
 
 @pytest.mark.asyncio
-async def test_create_mood_log_twice_same_day_conflicts(
+async def test_create_mood_log_twice_same_day_creates_two_records(
     client: AsyncClient,
     create_user: Callable[..., Awaitable[User]],
     auth_headers: Callable[[uuid.UUID], dict[str, str]],
 ) -> None:
-    user = await create_user()
-    headers = auth_headers(user.id)
+    headers = auth_headers((await create_user()).id)
 
     first = await client.post("/mood-logs", headers=headers, json={"mood": "FELIZ"})
-    assert first.status_code == 201
-
     second = await client.post("/mood-logs", headers=headers, json={"mood": "TRISTE"})
-    assert second.status_code == 409
+
+    assert (first.status_code, second.status_code) == (201, 201)
+    assert first.json()["id"] != second.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_get_today_returns_most_recent_when_multiple_logged(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    headers = auth_headers((await create_user()).id)
+    await client.post("/mood-logs", headers=headers, json={"mood": "FELIZ"})
+    latest = await client.post("/mood-logs", headers=headers, json={"mood": "ANSIOSO"})
+
+    response = await client.get("/mood-logs/today", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == latest.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_list_mood_logs_by_date_returns_all_of_the_day_isolated_by_user(
+    client: AsyncClient,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    mine = auth_headers((await create_user()).id)
+    theirs = auth_headers((await create_user()).id)
+    first = await client.post("/mood-logs", headers=mine, json={"mood": "FELIZ"})
+    second = await client.post("/mood-logs", headers=mine, json={"mood": "TRISTE"})
+    await client.post("/mood-logs", headers=theirs, json={"mood": "BEM"})
+
+    response = await client.get(
+        "/mood-logs", params={"date": datetime.now(UTC).date().isoformat()}, headers=mine
+    )
+
+    assert [i["id"] for i in response.json()["items"]] == [second.json()["id"], first.json()["id"]]
 
 
 @pytest.mark.asyncio
