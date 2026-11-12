@@ -10,6 +10,7 @@ from app.models.user import User
 from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
 from app.services.daily_message import DailyMessageService
+from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
@@ -79,3 +80,7 @@ async def get_current_admin(
 
 def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
     return DailyMessageService(db)
+
+
+def get_diary_entry_service(db: AsyncSession = Depends(get_session)) -> DiaryEntryService:
+    return DiaryEntryService(db)
