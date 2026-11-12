@@ -17,6 +17,7 @@ dependencies = [
     "pyjwt>=2.14.0",
     "email-validator>=2.3.0",
     "resend>=2.47.0",
+    "tzdata>=2026.6",
     "python-multipart>=0.0.33",
     "boto3>=1.44.0",
 ]
