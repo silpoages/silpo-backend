@@ -17,6 +17,7 @@ from app.schemas.journey import (
     JourneyRead,
     JourneySummary,
 )
+from app.services.achievement import available_achievement_filter
 
 
 class JourneyService:
@@ -90,7 +91,8 @@ class JourneyService:
             )
             .scalar_subquery()
         )
-        available_achievement = (Achievement.enabled.is_(True), Achievement.deleted_at.is_(None))
+        # Mesmo recorte do GET /achievements: só as conquistas do catálogo, habilitadas.
+        available_achievement = available_achievement_filter()
         unlocked_achievements = (
             select(func.count(distinct(AchievementLog.achievement_id)))
             .join(Achievement, Achievement.id == AchievementLog.achievement_id)
