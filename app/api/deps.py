@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
+from app.services.admin_dashboard import AdminDashboardService
 from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
 from app.services.dashboard_summary import DashboardSummaryService
@@ -85,6 +86,12 @@ async def get_current_admin(
     user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_admin(user_id)
+
+
+def get_admin_dashboard_service(
+    db: AsyncSession = Depends(get_session),
+) -> AdminDashboardService:
+    return AdminDashboardService(db)
 
 
 def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
