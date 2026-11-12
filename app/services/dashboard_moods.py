@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.percentages import to_percentages
 from app.enums import Mood
 from app.models.mood_log import MoodLog
+from app.models.user import User
 
 
 class DashboardMoodsService:
@@ -25,7 +26,13 @@ class DashboardMoodsService:
 
         rows = await self.db.execute(
             select(MoodLog.log_date, MoodLog.mood, func.count())
-            .where(MoodLog.log_date >= first_day, MoodLog.log_date <= last_day)
+            .join(User, User.id == MoodLog.user_id)
+            .where(
+                MoodLog.log_date >= first_day,
+                MoodLog.log_date <= last_day,
+                User.enabled.is_(True),
+                User.deleted_at.is_(None),
+            )
             .group_by(MoodLog.log_date, MoodLog.mood)
         )
         for log_date, mood, count in rows.all():

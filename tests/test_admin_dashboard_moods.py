@@ -148,3 +148,29 @@ async def test_moods_counts_records_in_period(
     expected_day = {mood.value: 0 for mood in Mood}
     expected_day[Mood.FELIZ.value] = 1
     assert day_delta == expected_day
+
+
+async def test_moods_ignore_disabled_and_deleted_users(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    headers = auth_headers(admin.id)
+    params = {"period_days": 7}
+    before = (await client.get(URL, params=params, headers=headers)).json()
+
+    today = datetime.now(UTC).date()
+    disabled = await create_user(enabled=False)
+    deleted = await create_user(deleted_at=datetime.now(UTC))
+    for user in (disabled, deleted):
+        db_session.add(MoodLog(user_id=user.id, mood=Mood.TRISTE, log_date=today))
+    await db_session.commit()
+
+    response = await client.get(URL, params=params, headers=headers)
+
+    assert response.status_code == 200
+    after = response.json()
+    assert after["total_records"] == before["total_records"]
+    assert _distribution(after) == _distribution(before)
