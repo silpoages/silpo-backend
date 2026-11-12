@@ -3,8 +3,9 @@ import sys
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 
+from app.core.achievement_catalog import ACHIEVEMENT_CATALOG, ACHIEVEMENTS_BY_CODE
 from app.core.security import pwd_context
 from app.db.base import Base
 from app.db.session import async_session_maker
@@ -52,6 +53,7 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
             MeditationActivity,
             "Meditação transcendental",
             {
+                "description": "Uma meditação guiada para acalmar a mente e reduzir a ansiedade.",
                 "max_duration_seconds": 300,
                 "audio_url": "https://www.youtube.com/watch?v=2p8q1vs9K78",
             },
@@ -64,13 +66,15 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        existing_id = await db.scalar(
-            select(model.id)
-            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
-            .limit(1)
-        )
-        if existing_id is not None:
-            activity_ids.append(existing_id)
+        query = select(model).where(model.name == name)
+        # Hidden and soft-deleted meditations still count as seeded.
+        if model is not MeditationActivity:
+            query = query.where(model.enabled.is_(True), model.deleted_at.is_(None))
+        existing = await db.scalar(query.limit(1))
+        if existing is not None:
+            if isinstance(existing, MeditationActivity) and existing.description == "":
+                existing.description = configuration["description"]
+            activity_ids.append(existing.id)
             continue
 
         activity_id = uuid.uuid4()
@@ -138,6 +142,45 @@ async def ensure_default_good_practices(db) -> uuid.UUID:
     return first_practice_id
 
 
+# Conquista de exemplo das versões anteriores do seed, criada com id aleatório.
+LEGACY_SAMPLE_ACHIEVEMENT = ("Primeiro Passo", "Completou a primeira atividade no Silpo.")
+
+
+async def ensure_default_achievements(db) -> None:
+    """Cadastra as conquistas do catálogo pelo id fixo, sem duplicar nem sobrescrever."""
+    existing_ids = set(
+        await db.scalars(
+            select(Achievement.id).where(
+                Achievement.id.in_([definition.id for definition in ACHIEVEMENT_CATALOG])
+            )
+        )
+    )
+    for definition in ACHIEVEMENT_CATALOG:
+        if definition.id in existing_ids:
+            continue
+        db.add(
+            Achievement(
+                id=definition.id,
+                name=definition.name,
+                description=definition.description,
+                image_url=definition.icon,
+            )
+        )
+
+    # A antiga "Primeiro Passo" vira a do catálogo: sai da contagem, mas os logs ficam.
+    legacy_name, legacy_description = LEGACY_SAMPLE_ACHIEVEMENT
+    await db.execute(
+        update(Achievement)
+        .where(
+            Achievement.name == legacy_name,
+            Achievement.description == legacy_description,
+            Achievement.enabled.is_(True),
+        )
+        .values(enabled=False)
+    )
+    await db.flush()
+
+
 async def seed() -> None:
     async with async_session_maker() as db:
         if "--reset" in sys.argv:
@@ -154,8 +197,9 @@ async def seed() -> None:
         if existente.scalars().first() is not None:
             await ensure_default_activities(db)
             await ensure_default_good_practices(db)
+            await ensure_default_achievements(db)
             await db.commit()
-            print("\n\n✅ Atividades e práticas do bem disponíveis; dados preservados.\n\n")
+            print("\n\n✅ Atividades, práticas e conquistas disponíveis; dados preservados.\n\n")
             return
 
         now = datetime.now(UTC)
@@ -261,19 +305,6 @@ async def seed() -> None:
             ),
         ]
 
-        achievement_id = uuid.uuid4()
-        achievements = [
-            Achievement(
-                id=achievement_id,
-                name="Primeiro Passo",
-                image_url="https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/Bot%C3%B3n_Me_gusta.svg/1280px-Bot%C3%B3n_Me_gusta.svg.png?utm_source=pt.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-                description="Completou a primeira atividade no Silpo.",
-            ),
-        ]
-        achievement_logs = [
-            AchievementLog(user_id=paciente1_id, achievement_id=achievement_id),
-        ]
-
         good_practice_id = await ensure_default_good_practices(db)
         good_practice_logs = [
             GoodPracticeLog(user_id=paciente1_id, good_practice_id=good_practice_id, posted_at=now),
@@ -288,10 +319,23 @@ async def seed() -> None:
                 log_date=now.date(),
             ),
         ]
+        await ensure_default_achievements(db)
+        # Coerentes com os registros acima: Sol tem 1 emoção, 1 prática, 1 respiração e 1
+        # entrada no diário; Rafael só tem 1 meditação, que ainda não completa nenhuma meta.
+        achievement_logs = [
+            AchievementLog(
+                user_id=paciente1_id,
+                achievement_id=ACHIEVEMENTS_BY_CODE[code].id,
+                achieved_at=now,
+            )
+            for code in ("first_step", "small_victories", "moment_to_breathe", "my_story_matters")
+        ]
+
         diary_entries = [
             DiaryEntry(
                 user_id=paciente1_id,
                 mood_log_id=mood_log_id,
+                entry_date=now.date(),
                 note="Hoje consegui ir no café perto de casa. Fiquei feliz e tomei um capuccino.",
             ),
         ]
@@ -306,7 +350,7 @@ async def seed() -> None:
             DailyMessage(message="Neste momento, estou seguro e protegido."),
         ]
 
-        db.add_all(users + achievements + daily_messages)
+        db.add_all(users + daily_messages)
         await db.flush()
 
         db.add_all(

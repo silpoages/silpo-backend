@@ -20,6 +20,7 @@ from app.schemas.activity import (
     MeditationActivityRead,
     SelfRegulationActivityRead,
 )
+from app.services.achievement import AchievementService
 
 
 class ActivityService:
@@ -94,7 +95,7 @@ class ActivityService:
         max_duration = activity.max_duration_seconds
         if max_duration is not None and time_spent_seconds > max_duration:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"time_spent_seconds must not exceed {max_duration}",
             )
 
@@ -119,6 +120,7 @@ class ActivityService:
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
+        await AchievementService(self.db).evaluate_after_action(user_id)
         return session
 
     async def _load_enabled(
