@@ -90,5 +90,6 @@ def get_meditation_service(
 ) -> MeditationService:
     return MeditationService(db, storage)
 
+
 def get_diary_entry_service(db: AsyncSession = Depends(get_session)) -> DiaryEntryService:
     return DiaryEntryService(db)
