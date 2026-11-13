@@ -5,14 +5,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 _NON_NULL_UPDATE_FIELDS = ("name", "description", "audio_url", "max_duration_seconds", "enabled")
 
 
-class MeditationCreate(BaseModel):
+class MeditationBase(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(min_length=1, max_length=300)
-    audio_url: str = Field(min_length=1)
     max_duration_seconds: int = Field(gt=0, le=2_147_483_647)
     enabled: bool = True
+
+
+class MeditationCreate(MeditationBase):
+    audio_url: str = Field(min_length=1)
 
 
 class MeditationUpdate(BaseModel):
