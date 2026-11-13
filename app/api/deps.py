@@ -13,6 +13,7 @@ from app.services.admin_dashboard import AdminDashboardService
 from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
 from app.services.dashboard_moods import DashboardMoodsService
+from app.services.dashboard_summary import DashboardSummaryService
 from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
@@ -48,6 +49,12 @@ def get_dashboard_moods_service(
 
 def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
     return UserService(db)
+
+
+def get_dashboard_summary_service(
+    db: AsyncSession = Depends(get_session),
+) -> DashboardSummaryService:
+    return DashboardSummaryService(db)
 
 
 def get_emergency_contact_service(

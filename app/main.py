@@ -7,6 +7,7 @@ from app.api.routes import (
     admin_daily_messages,
     admin_dashboard,
     admin_dashboard_moods,
+    admin_dashboard_summary,
     admin_good_practices,
     admin_meditations,
     admin_users,
@@ -75,6 +76,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_good_practices.router)
     app.include_router(admin_users.router)
     app.include_router(admin_dashboard_moods.router)
+    app.include_router(admin_dashboard_summary.router)
     app.include_router(admin_daily_messages.router)
     app.include_router(admin_meditations.router)
     app.include_router(media.router)
