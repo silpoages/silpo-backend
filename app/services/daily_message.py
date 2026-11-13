@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime, time
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, func, select
@@ -7,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.daily_message import DailyMessage
 from app.schemas.daily_message import DailyMessageCreate, DailyMessageUpdate
+
+DAILY_MESSAGE_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 class DailyMessageService:
@@ -74,7 +77,8 @@ class DailyMessageService:
 
     async def get_today(self) -> DailyMessage | None:
         now = datetime.now(UTC)
-        start_of_today = datetime.combine(now.date(), time.min, tzinfo=UTC)
+        today = now.astimezone(DAILY_MESSAGE_TIMEZONE).date()
+        start_of_today = datetime.combine(today, time.min, tzinfo=DAILY_MESSAGE_TIMEZONE)
         available = (DailyMessage.enabled.is_(True), DailyMessage.deleted_at.is_(None))
 
         shown_today = await self.db.scalar(

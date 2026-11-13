@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 import pytest
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import Role
 from app.models.daily_message import DailyMessage
 from app.models.user import User
+from app.services.daily_message import DAILY_MESSAGE_TIMEZONE
 
 CreateUser = Callable[..., Awaitable[User]]
 AuthHeaders = Callable[[uuid.UUID], dict[str, str]]
@@ -180,3 +181,22 @@ async def test_today_returns_only_display_fields(
     response = await client.get(URL, headers=await _user_headers(create_user, auth_headers))
 
     assert response.json() == {"id": str(daily_message.id), "message": "Respire fundo"}
+
+
+async def test_today_turns_at_midnight_in_sao_paulo(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: CreateUser,
+    auth_headers: AuthHeaders,
+) -> None:
+    await _clear(db_session)
+    local_today = datetime.now(DAILY_MESSAGE_TIMEZONE).date()
+    start_of_day = datetime.combine(local_today, time.min, tzinfo=DAILY_MESSAGE_TIMEZONE)
+    yesterday_night = start_of_day - timedelta(minutes=30)
+    await _add(db_session, "Mostrada ontem as 23h30", last_shown=yesterday_night)
+    two_days_ago = start_of_day - timedelta(days=2)
+    oldest = await _add(db_session, "Mostrada anteontem", last_shown=two_days_ago)
+
+    response = await client.get(URL, headers=await _user_headers(create_user, auth_headers))
+
+    assert response.json()["id"] == str(oldest.id)
