@@ -196,7 +196,7 @@ class DiaryEntryService:
             .group_by(DiaryEntry.entry_date)
             .order_by(DiaryEntry.entry_date)
         )
-        counts = dict(result.all())
+        counts: dict[date, int] = {day: total for day, total in result.all()}
 
         mood_rows = await self.db.execute(
             select(MoodLog.log_date, MoodLog.mood)
