@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
@@ -15,6 +16,7 @@ from app.models.mood_log import MoodLog
 from app.models.user import User
 from app.schemas.diary_entry import DiaryEntryCreate, DiaryEntryRead
 from app.services.diary_entry import DiaryEntryService
+from app.services.image_storage import LocalImageStorage, new_image_key
 
 CreateUser = Callable[..., Awaitable[User]]
 
@@ -54,6 +56,10 @@ def test_invalid_date_and_mood_log_id_are_rejected() -> None:
         DiaryEntryCreate.model_validate({"note": "oi", "entry_date": "2026-13-40"})
     with pytest.raises(ValidationError):
         DiaryEntryCreate.model_validate({"note": "oi", "mood_log_id": "not-a-uuid"})
+    with pytest.raises(ValidationError):
+        DiaryEntryCreate.model_validate(
+            {"note": "oi", "mood": Mood.FELIZ, "mood_log_id": str(uuid.uuid4())}
+        )
 
 
 async def test_create_without_mood_log_has_no_mood_and_no_practice(
@@ -68,6 +74,56 @@ async def test_create_without_mood_log_has_no_mood_and_no_practice(
     assert read.mood is None
     assert read.practice is None
     assert read.note == "relato"
+
+
+async def test_create_with_mood_stores_it_on_the_chosen_date(
+    db_session: AsyncSession, create_user: CreateUser
+) -> None:
+    user = await create_user()
+    chosen = date(2026, 3, 18)
+
+    entry = await DiaryEntryService(db_session).create(
+        user.id, _payload(entry_date=chosen, mood=Mood.ANSIOSO)
+    )
+    read = DiaryEntryRead.model_validate(entry)
+    stored = await db_session.scalar(select(MoodLog).where(MoodLog.id == entry.mood_log_id))
+
+    assert read.mood == Mood.ANSIOSO
+    assert stored is not None
+    assert stored.user_id == user.id
+    assert stored.log_date == chosen
+    assert stored.mood == Mood.ANSIOSO
+
+
+async def test_create_rejects_an_image_the_user_does_not_own(
+    db_session: AsyncSession, create_user: CreateUser, tmp_path: Path
+) -> None:
+    owner = await create_user()
+    intruder = await create_user()
+    storage = LocalImageStorage(tmp_path)
+    foreign_key = new_image_key(owner.id, "jpg")
+    await storage.save(foreign_key, b"\xff\xd8\xffimg", "image/jpeg")
+
+    with pytest.raises(HTTPException) as exc:
+        await DiaryEntryService(db_session, storage).create(
+            intruder.id, _payload(image_url=foreign_key)
+        )
+
+    assert exc.value.status_code == 404
+
+
+async def test_delete_removes_the_private_image(
+    db_session: AsyncSession, create_user: CreateUser, tmp_path: Path
+) -> None:
+    user = await create_user()
+    storage = LocalImageStorage(tmp_path)
+    service = DiaryEntryService(db_session, storage)
+    key = await service.save_image(user.id, b"\xff\xd8\xffimg", "jpg")
+    entry = await service.create(user.id, _payload(image_url=key))
+
+    await service.delete(user.id, entry.id)
+
+    assert await storage.exists(key) is False
 
 
 async def test_create_with_own_mood_log_exposes_its_mood(
@@ -165,7 +221,7 @@ async def test_entries_never_leak_to_another_account(
     owner = await create_user()
     other = await create_user()
     service = DiaryEntryService(db_session)
-    entry = await service.create(owner.id, _payload(image_url="https://x/img.png"))
+    entry = await service.create(owner.id, _payload())
 
     assert await service.list_entries(other.id) == []
     assert await service.list_entries(other.id, DAY) == []
@@ -264,6 +320,24 @@ async def test_month_summary_counts_multiple_entries_per_day_within_month_only(
         (date(2026, 11, 15), 2),
         (date(2026, 11, 30), 1),
     ]
+
+
+async def test_month_summary_marks_a_day_that_only_has_a_home_mood(
+    db_session: AsyncSession, create_user: CreateUser
+) -> None:
+    user = await create_user()
+    service = DiaryEntryService(db_session)
+    await _add_mood_log(db_session, user, Mood.FELIZ, date(2026, 11, 4))
+    await _add_mood_log(db_session, user, Mood.BEM, date(2026, 11, 4))
+    await service.create(user.id, _payload(entry_date=date(2026, 11, 5), mood=Mood.TRISTE))
+
+    summary = await service.get_month_summary(user.id, 2026, 11)
+    by_day = {day.entry_date: day for day in summary.days}
+
+    assert by_day[date(2026, 11, 4)].entries_count == 0
+    assert set(by_day[date(2026, 11, 4)].moods) == {Mood.FELIZ, Mood.BEM}
+    assert by_day[date(2026, 11, 5)].entries_count == 1
+    assert by_day[date(2026, 11, 5)].moods == [Mood.TRISTE]
 
 
 async def test_month_summary_handles_empty_months_and_leap_february(

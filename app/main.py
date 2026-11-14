@@ -13,6 +13,7 @@ from app.api.routes import (
     admin_users,
     auth,
     daily_messages,
+    diary_entries,
     emergency_contacts,
     good_practices,
     health,
@@ -80,6 +81,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(admin_dashboard_summary.router)
     app.include_router(admin_daily_messages.router)
     app.include_router(daily_messages.router)
+    app.include_router(diary_entries.router)
     app.include_router(admin_meditations.router)
     app.include_router(media.router)
     app.include_router(admin_dashboard.router)
