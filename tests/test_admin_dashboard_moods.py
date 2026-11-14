@@ -174,3 +174,29 @@ async def test_moods_ignore_disabled_and_deleted_users(
     after = response.json()
     assert after["total_records"] == before["total_records"]
     assert _distribution(after) == _distribution(before)
+
+
+async def test_moods_ignore_staff_users(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_user: Callable[..., Awaitable[User]],
+    auth_headers: Callable[[uuid.UUID], dict[str, str]],
+) -> None:
+    admin = await create_user(role=Role.ADMIN)
+    headers = auth_headers(admin.id)
+    params = {"period_days": 7}
+    before = (await client.get(URL, params=params, headers=headers)).json()
+
+    today = datetime.now(UTC).date()
+    professional = await create_user(role=Role.PROFESSIONAL)
+    other_admin = await create_user(role=Role.ADMIN)
+    for user in (professional, other_admin):
+        db_session.add(MoodLog(user_id=user.id, mood=Mood.FELIZ, log_date=today))
+    await db_session.commit()
+
+    response = await client.get(URL, params=params, headers=headers)
+
+    assert response.status_code == 200
+    after = response.json()
+    assert after["total_records"] == before["total_records"]
+    assert _distribution(after) == _distribution(before)

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.percentages import to_percentages
-from app.enums import Mood
+from app.enums import Mood, Role
 from app.models.mood_log import MoodLog
 from app.models.user import User
 
@@ -30,6 +30,7 @@ class DashboardMoodsService:
             .where(
                 MoodLog.log_date >= first_day,
                 MoodLog.log_date <= last_day,
+                User.role == Role.USER,
                 User.enabled.is_(True),
                 User.deleted_at.is_(None),
             )
