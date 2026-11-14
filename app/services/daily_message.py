@@ -81,6 +81,14 @@ class DailyMessageService:
         start_of_today = datetime.combine(today, time.min, tzinfo=DAILY_MESSAGE_TIMEZONE)
         available = (DailyMessage.enabled.is_(True), DailyMessage.deleted_at.is_(None))
 
+        # Segura as linhas até o commit: duas requisições na virada não podem gravar mensagens diferentes.
+        await self.db.execute(
+            select(DailyMessage.id)
+            .where(*available)
+            .order_by(DailyMessage.id)
+            .with_for_update()
+        )
+
         shown_today = await self.db.scalar(
             select(DailyMessage)
             .where(*available, DailyMessage.last_shown >= start_of_today)
