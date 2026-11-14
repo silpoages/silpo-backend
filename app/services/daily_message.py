@@ -84,10 +84,7 @@ class DailyMessageService:
         # Segura as linhas até o commit: na virada, duas requisições
         # não podem gravar mensagens diferentes.
         await self.db.execute(
-            select(DailyMessage.id)
-            .where(*available)
-            .order_by(DailyMessage.id)
-            .with_for_update()
+            select(DailyMessage.id).where(*available).order_by(DailyMessage.id).with_for_update()
         )
 
         shown_today = await self.db.scalar(
