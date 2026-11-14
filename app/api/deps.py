@@ -12,6 +12,7 @@ from app.services.activity import ActivityService
 from app.services.admin_dashboard import AdminDashboardService
 from app.services.audio_storage import AudioStorage, get_audio_storage
 from app.services.daily_message import DailyMessageService
+from app.services.dashboard_moods import DashboardMoodsService
 from app.services.dashboard_summary import DashboardSummaryService
 from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
@@ -38,6 +39,12 @@ def get_activity_service(db: AsyncSession = Depends(get_session)) -> ActivitySer
 
 def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogService:
     return MoodLogService(db)
+
+
+def get_dashboard_moods_service(
+    db: AsyncSession = Depends(get_session),
+) -> DashboardMoodsService:
+    return DashboardMoodsService(db)
 
 
 def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
