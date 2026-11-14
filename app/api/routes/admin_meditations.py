@@ -1,14 +1,19 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from app.api.deps import get_current_admin, get_meditation_service
 from app.models.meditation_activity import MeditationActivity
 from app.models.user import User
-from app.schemas.meditation import MeditationBase, MeditationRead, MeditationUpdate
+from app.schemas.meditation import (
+    MeditationBase,
+    MeditationListResponse,
+    MeditationRead,
+    MeditationUpdate,
+)
 from app.services.meditation import MeditationService
 from app.services.mp3_validation import read_validated_mp3
 
@@ -65,6 +70,18 @@ async def parse_meditation_update_form(
         for error in errors:
             error["loc"] = ("body", *error["loc"])
         raise RequestValidationError(errors) from exc
+
+
+@router.get("", response_model=MeditationListResponse, status_code=status.HTTP_200_OK)
+async def list_meditations(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    search: Annotated[str | None, Query(max_length=80)] = None,
+    enabled: bool | None = None,
+    service: MeditationService = Depends(get_meditation_service),
+) -> MeditationListResponse:
+    items, total = await service.list_for_admin(page, page_size, search, enabled)
+    return MeditationListResponse(items=items, total=total or 0, page=page, page_size=page_size)
 
 
 @router.post("", response_model=MeditationRead, status_code=status.HTTP_201_CREATED)

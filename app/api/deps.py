@@ -18,6 +18,7 @@ from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
+from app.services.image_storage import ImageStorage, get_image_storage
 from app.services.journey import JourneyService
 from app.services.meditation import MeditationService
 from app.services.mood_log import MoodLogService
@@ -112,5 +113,8 @@ def get_meditation_service(
     return MeditationService(db, storage)
 
 
-def get_diary_entry_service(db: AsyncSession = Depends(get_session)) -> DiaryEntryService:
-    return DiaryEntryService(db)
+def get_diary_entry_service(
+    db: AsyncSession = Depends(get_session),
+    images: ImageStorage = Depends(get_image_storage),
+) -> DiaryEntryService:
+    return DiaryEntryService(db, images)
