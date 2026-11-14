@@ -81,7 +81,8 @@ class DailyMessageService:
         start_of_today = datetime.combine(today, time.min, tzinfo=DAILY_MESSAGE_TIMEZONE)
         available = (DailyMessage.enabled.is_(True), DailyMessage.deleted_at.is_(None))
 
-        # Segura as linhas até o commit: duas requisições na virada não podem gravar mensagens diferentes.
+        # Segura as linhas até o commit: na virada, duas requisições
+        # não podem gravar mensagens diferentes.
         await self.db.execute(
             select(DailyMessage.id)
             .where(*available)
