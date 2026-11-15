@@ -10,6 +10,8 @@ from app.api.deps import get_current_user, get_diary_entry_service
 from app.models.diary_entry import DiaryEntry
 from app.models.user import User
 from app.schemas.diary_entry import (
+    DiaryDeletedEntryListResponse,
+    DiaryDeletedEntryRead,
     DiaryEntryCreate,
     DiaryEntryListResponse,
     DiaryEntryRead,
@@ -111,6 +113,33 @@ async def get_diary_calendar(
 ) -> DiaryMonthSummary:
     year, month_number = _parse_month(month)
     return await service.get_month_summary(current_user.id, year, month_number)
+
+
+# Antes de `/{entry_id}`: senão "deleted" seria lido como id.
+@router.get("/deleted", response_model=DiaryDeletedEntryListResponse)
+async def list_deleted_diary_entries(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
+    current_user: User = Depends(get_current_user),
+    service: DiaryEntryService = Depends(get_diary_entry_service),
+) -> DiaryDeletedEntryListResponse:
+    items = await service.list_deleted(current_user.id, page=page, page_size=page_size)
+    total = await service.count_deleted(current_user.id)
+    return DiaryDeletedEntryListResponse(
+        items=[DiaryDeletedEntryRead.model_validate(entry) for entry in items],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+@router.post("/{entry_id}/restore", response_model=DiaryEntryRead)
+async def restore_diary_entry(
+    entry_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: DiaryEntryService = Depends(get_diary_entry_service),
+) -> DiaryEntry:
+    return await service.restore(current_user.id, entry_id)
 
 
 @router.get("/{entry_id}", response_model=DiaryEntryRead)

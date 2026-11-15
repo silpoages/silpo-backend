@@ -52,6 +52,17 @@ class DiaryEntryListResponse(BaseModel):
     total: int = 0
 
 
+class DiaryDeletedEntryRead(DiaryEntryRead):
+    deleted_at: datetime
+
+
+class DiaryDeletedEntryListResponse(BaseModel):
+    items: list[DiaryDeletedEntryRead]
+    page: int = 1
+    page_size: int = 10
+    total: int = 0
+
+
 class DiaryMoodLogRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

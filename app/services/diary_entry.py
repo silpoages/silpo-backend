@@ -31,6 +31,10 @@ class DiaryEntryService:
             DiaryEntry.deleted_at.is_(None),
         )
 
+    @staticmethod
+    def _deleted(user_id: uuid.UUID) -> tuple[ColumnElement[bool], ...]:
+        return (DiaryEntry.user_id == user_id, DiaryEntry.deleted_at.is_not(None))
+
     async def create(self, user_id: uuid.UUID, payload: DiaryEntryCreate) -> DiaryEntry:
         if payload.mood is not None and payload.mood_log_id is not None:
             raise HTTPException(
@@ -174,6 +178,44 @@ class DiaryEntryService:
             and self.images is not None
         ):
             await self.images.delete(image_url)
+
+    async def list_deleted(
+        self, user_id: uuid.UUID, *, page: int = 1, page_size: int = 10
+    ) -> list[DiaryEntry]:
+        result = await self.db.execute(
+            select(DiaryEntry)
+            .where(*self._deleted(user_id))
+            .order_by(DiaryEntry.deleted_at.desc(), DiaryEntry.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(result.scalars().all())
+
+    async def count_deleted(self, user_id: uuid.UUID) -> int:
+        total = await self.db.scalar(
+            select(func.count(DiaryEntry.id)).where(*self._deleted(user_id))
+        )
+        return int(total or 0)
+
+    async def restore(self, user_id: uuid.UUID, entry_id: uuid.UUID) -> DiaryEntry:
+        entry = await self.db.scalar(
+            select(DiaryEntry).where(DiaryEntry.id == entry_id, *self._deleted(user_id))
+        )
+        if entry is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Diary entry not found"
+            )
+
+        # A foto é removida do storage quando o registro é apagado; volta só o texto.
+        if entry.image_url is not None and (
+            self.images is None or not await self.images.exists(entry.image_url)
+        ):
+            entry.image_url = None
+        entry.enabled = True
+        entry.deleted_at = None
+        await self.db.commit()
+        await AchievementService(self.db).evaluate_after_action(user_id)
+        return await self.get_by_id(user_id, entry.id)
 
     async def get_month_summary(
         self, user_id: uuid.UUID, year: int, month: int
