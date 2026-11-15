@@ -20,7 +20,6 @@ from app.models import (
     EmergencyContact,
     GoodPractice,
     GoodPracticeLog,
-    MeditationActivity,
     MoodLog,
     ProfessionalPatient,
     SelfRegulationActivity,
@@ -36,7 +35,7 @@ async def clear_db(db) -> None:
     await db.commit()
 
 
-async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID]:
     defaults = (
         (
             BreathingActivity,
@@ -50,15 +49,6 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
             },
         ),
         (
-            MeditationActivity,
-            "Meditação transcendental",
-            {
-                "description": "Uma meditação guiada para acalmar a mente e reduzir a ansiedade.",
-                "max_duration_seconds": 300,
-                "audio_url": "https://www.youtube.com/watch?v=2p8q1vs9K78",
-            },
-        ),
-        (
             SelfRegulationActivity,
             "Estoura Bolhas",
             {"max_duration_seconds": 60, "bubble_spawn_interval_ms": 800},
@@ -66,14 +56,12 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        query = select(model).where(model.name == name)
-        # Hidden and soft-deleted meditations still count as seeded.
-        if model is not MeditationActivity:
-            query = query.where(model.enabled.is_(True), model.deleted_at.is_(None))
-        existing = await db.scalar(query.limit(1))
+        existing = await db.scalar(
+            select(model)
+            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
+            .limit(1)
+        )
         if existing is not None:
-            if isinstance(existing, MeditationActivity) and existing.description == "":
-                existing.description = configuration["description"]
             activity_ids.append(existing.id)
             continue
 
@@ -82,7 +70,7 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
         activity_ids.append(activity_id)
 
     await db.flush()
-    return activity_ids[0], activity_ids[1], activity_ids[2]
+    return activity_ids[0], activity_ids[1]
 
 
 async def ensure_default_good_practices(db) -> uuid.UUID:
@@ -268,15 +256,10 @@ async def seed() -> None:
             ),
         ]
 
-        (
-            breathing_activity_id,
-            meditation_activity_id,
-            self_regulation_activity_id,
-        ) = await ensure_default_activities(db)
+        breathing_activity_id, self_regulation_activity_id = await ensure_default_activities(db)
 
         breathing_session_id = uuid.uuid4()
         self_regulation_session_id = uuid.uuid4()
-        meditation_session_id = uuid.uuid4()
 
         activity_sessions = [
             ActivitySession(
@@ -285,14 +268,6 @@ async def seed() -> None:
                 activity_id=breathing_activity_id,
                 type=ActivityType.BREATHING,
                 time_spent_seconds=76,
-                posted_at=now,
-            ),
-            ActivitySession(
-                id=meditation_session_id,
-                user_id=paciente2_id,
-                activity_id=meditation_activity_id,
-                type=ActivityType.MEDITATION,
-                time_spent_seconds=290,
                 posted_at=now,
             ),
             SelfRegulationSession(
@@ -321,7 +296,7 @@ async def seed() -> None:
         ]
         await ensure_default_achievements(db)
         # Coerentes com os registros acima: Sol tem 1 emoção, 1 prática, 1 respiração e 1
-        # entrada no diário; Rafael só tem 1 meditação, que ainda não completa nenhuma meta.
+        # entrada no diário; Rafael não tem registros.
         achievement_logs = [
             AchievementLog(
                 user_id=paciente1_id,
