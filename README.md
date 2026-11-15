@@ -212,20 +212,22 @@ no record is created.
 
 ## SMTP credentials stored in the database
 
-With `EMAIL_PROVIDER=smtp`, `SMTP_USERNAME` and `SMTP_PASSWORD` normally come from the
-environment (in production, Secrets Manager via silpo-iac). When either one arrives **empty**,
-the API falls back to rows in the `app_setting` table, read on every send:
+With `EMAIL_PROVIDER=smtp`, the SMTP login normally comes from `SMTP_USERNAME` and
+`SMTP_PASSWORD` (in production, Secrets Manager via silpo-iac — changing those needs AWS admin
+access). The `app_setting` table can override them, and the team can edit it through the
+database tunnel. It's read on every send, so no redeploy is needed:
 
 ```sql
 INSERT INTO app_setting (key, value) VALUES
-  ('smtp_username', 'silpoages@gmail.com'),
+  ('smtp_username', 'silpoagescontato@gmail.com'),
   ('smtp_password', '<gmail app password>')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 ```
 
-A non-empty environment variable always wins, so once the secrets are set in silpo-iac these
-rows are ignored and can be deleted. If neither source has credentials, sending fails before
-connecting and the error is logged (`SMTP credentials missing`).
+When **both** rows exist they take precedence over the environment; with only one (or none),
+the environment is used. To go back to the environment's credentials, delete the rows. If
+neither source has credentials, sending fails before connecting and the error is logged
+(`SMTP credentials missing`).
 
 Gmail rejects a `From` address that differs from the authenticated account, so when the
 credentials come from the table the sender follows them: the display name of `EMAIL_FROM` with
