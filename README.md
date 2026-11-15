@@ -224,9 +224,13 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 ```
 
 A non-empty environment variable always wins, so once the secrets are set in silpo-iac these
-rows are ignored and can be deleted. `EMAIL_FROM` stays in the environment and must match
-`smtp_username`. If neither source has credentials, sending fails before connecting and the
-error is logged (`SMTP credentials missing`).
+rows are ignored and can be deleted. If neither source has credentials, sending fails before
+connecting and the error is logged (`SMTP credentials missing`).
+
+Gmail rejects a `From` address that differs from the authenticated account, so when the
+credentials come from the table the sender follows them: the display name of `EMAIL_FROM` with
+the `smtp_username` address (e.g. `Silpo <silpoagescontato@gmail.com>`). To use another sender,
+add an `email_from` row with the full value (`Name <address>`).
 
 ## Example endpoint
 
