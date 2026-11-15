@@ -27,7 +27,7 @@ def _hash_code(code: str) -> str:
 class EmailConfirmationService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
-        self.email_service = EmailService()
+        self.email_service = EmailService(db)
 
     async def create_and_send(self, user: User) -> None:
         code = secrets.token_urlsafe(32)

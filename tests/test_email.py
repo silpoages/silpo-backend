@@ -3,9 +3,11 @@ from email.message import EmailMessage
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.services.email import EmailService
+from app.models.app_setting import AppSetting
+from app.services.email import EmailService, SmtpNotConfiguredError
 
 
 async def test_send_calls_resend_with_expected_payload() -> None:
@@ -79,3 +81,67 @@ async def test_send_propagates_smtp_errors() -> None:
             await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
 
     smtp.send_message.assert_not_called()
+
+
+@pytest.fixture
+def smtp_settings_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Como em produção: o ECS injeta os secrets do SMTP, só que vazios.
+    monkeypatch.setenv("EMAIL_PROVIDER", "smtp")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "2525")
+    monkeypatch.setenv("SMTP_USERNAME", "")
+    monkeypatch.setenv("SMTP_PASSWORD", "")
+    monkeypatch.setenv("EMAIL_FROM", "Silpo <silpo@example.com>")
+    get_settings.cache_clear()
+
+
+async def _store_smtp_credentials(db_session: AsyncSession, username: str, password: str) -> None:
+    db_session.add_all(
+        [
+            AppSetting(key="smtp_username", value=username),
+            AppSetting(key="smtp_password", value=password),
+        ]
+    )
+    await db_session.flush()
+
+
+@pytest.mark.usefixtures("smtp_settings_without_credentials")
+async def test_smtp_falls_back_to_credentials_stored_in_the_database(
+    db_session: AsyncSession,
+) -> None:
+    await _store_smtp_credentials(db_session, "db-user@example.com", "db-app-password")
+    service = EmailService(db_session)
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
+
+    smtp = mock_smtp_class.return_value.__enter__.return_value
+    smtp.login.assert_called_once_with("db-user@example.com", "db-app-password")
+    smtp.send_message.assert_called_once()
+
+
+@pytest.mark.usefixtures("smtp_settings")
+async def test_smtp_environment_credentials_win_over_the_database(
+    db_session: AsyncSession,
+) -> None:
+    await _store_smtp_credentials(db_session, "db-user@example.com", "db-app-password")
+    service = EmailService(db_session)
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
+
+    smtp = mock_smtp_class.return_value.__enter__.return_value
+    smtp.login.assert_called_once_with("silpo@example.com", "app-password")
+
+
+@pytest.mark.usefixtures("smtp_settings_without_credentials")
+async def test_smtp_without_credentials_anywhere_fails_before_connecting(
+    db_session: AsyncSession,
+) -> None:
+    service = EmailService(db_session)
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        with pytest.raises(SmtpNotConfiguredError):
+            await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
+
+    mock_smtp_class.assert_not_called()
