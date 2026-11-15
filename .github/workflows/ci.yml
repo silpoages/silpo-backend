@@ -106,10 +106,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # One-off ECS tasks with the image just pushed: migrations (which also seed the achievement
-      # catalog) and then the achievement backfill, which grants already-earned achievements to
-      # existing users without alerts. Both are idempotent, so they run on every deploy.
-      - name: Run migrations and achievement backfill
+      # One-off ECS tasks with the image just pushed, in order: migrations, the app's reference
+      # data (activities, good practices and achievements — never users) and the achievement
+      # backfill, which grants already-earned achievements to existing users without alerts.
+      # All idempotent, so they run on every deploy; any failure stops before the redeploy.
+      - name: Run migrations, reference data and achievement backfill
         run: |
           set -euo pipefail
           CLUSTER="${{ vars.AWS_ECS_CLUSTER }}"
@@ -161,6 +162,7 @@ jobs:
           }
 
           run_task migrations '["alembic", "upgrade", "head"]'
+          run_task reference-data '["python", "-m", "scripts.seed", "--defaults-only"]'
           run_task achievement-backfill '["python", "-m", "scripts.backfill_achievements"]'
 
       # The ECS task definition always points at the ":latest" tag, so a plain image push
