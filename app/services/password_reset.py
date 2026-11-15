@@ -45,7 +45,7 @@ def _hash_numeric_code(reset_code_id: uuid.UUID, code: str) -> str:
 class PasswordResetService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
-        self.email_service = EmailService()
+        self.email_service = EmailService(db)
 
     async def request_reset(
         self, email: str, method: PasswordResetMethod = PasswordResetMethod.LINK

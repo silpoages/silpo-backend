@@ -210,6 +210,24 @@ Where the file goes is set by `AUDIO_STORAGE_BACKEND`:
 If saving the database record fails, the uploaded file is deleted, and if saving the file fails,
 no record is created.
 
+## SMTP credentials stored in the database
+
+With `EMAIL_PROVIDER=smtp`, `SMTP_USERNAME` and `SMTP_PASSWORD` normally come from the
+environment (in production, Secrets Manager via silpo-iac). When either one arrives **empty**,
+the API falls back to rows in the `app_setting` table, read on every send:
+
+```sql
+INSERT INTO app_setting (key, value) VALUES
+  ('smtp_username', 'silpoages@gmail.com'),
+  ('smtp_password', '<gmail app password>')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+```
+
+A non-empty environment variable always wins, so once the secrets are set in silpo-iac these
+rows are ignored and can be deleted. `EMAIL_FROM` stays in the environment and must match
+`smtp_username`. If neither source has credentials, sending fails before connecting and the
+error is logged (`SMTP credentials missing`).
+
 ## Example endpoint
 
 A minimal `Template` CRUD is included at `/templates` to validate the API → SQLAlchemy →
