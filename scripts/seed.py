@@ -1,3 +1,15 @@
+"""Popula o banco.
+
+Uso (`python -m scripts.seed [opção]`):
+
+- sem opção: banco vazio recebe dados de exemplo, inclusive usuários de teste com senha fixa.
+  Banco com usuários só recebe os dados padrão. **Só para desenvolvimento.**
+- `--defaults-only`: só os dados padrão (atividades, práticas do bem e conquistas), nunca
+  usuários. Seguro em produção; o deploy roda a cada push na main.
+- `--reset`: apaga tudo e popula com os dados de exemplo.
+- `--clear-db`: apaga tudo e não popula.
+"""
+
 import asyncio
 import sys
 import uuid
@@ -56,11 +68,8 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID]:
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        existing = await db.scalar(
-            select(model)
-            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
-            .limit(1)
-        )
+        # Desativada ou excluída pelo admin também conta como existente: o seed não a recria.
+        existing = await db.scalar(select(model).where(model.name == name).limit(1))
         if existing is not None:
             activity_ids.append(existing.id)
             continue
@@ -110,14 +119,9 @@ async def ensure_default_good_practices(db) -> uuid.UUID:
     )
     first_practice_id = None
     for title, description in defaults:
+        # Desativada ou excluída pelo admin também conta como existente: o seed não a recria.
         practice_id = await db.scalar(
-            select(GoodPractice.id)
-            .where(
-                GoodPractice.title == title,
-                GoodPractice.enabled.is_(True),
-                GoodPractice.deleted_at.is_(None),
-            )
-            .limit(1)
+            select(GoodPractice.id).where(GoodPractice.title == title).limit(1)
         )
         if practice_id is None:
             practice_id = uuid.uuid4()
@@ -169,8 +173,28 @@ async def ensure_default_achievements(db) -> None:
     await db.flush()
 
 
+async def ensure_defaults(db) -> None:
+    """Dados de referência do app: atividades, práticas do bem e conquistas.
+
+    Nunca cria usuários nem dados de exemplo, e não mexe no que já existe. É o que o deploy roda
+    em produção (`--defaults-only`), a cada deploy.
+    """
+    await ensure_default_activities(db)
+    await ensure_default_good_practices(db)
+    await ensure_default_achievements(db)
+
+
 async def seed() -> None:
+    if "--defaults-only" in sys.argv and ("--reset" in sys.argv or "--clear-db" in sys.argv):
+        raise SystemExit("--defaults-only não pode ser combinado com --reset ou --clear-db.")
+
     async with async_session_maker() as db:
+        if "--defaults-only" in sys.argv:
+            await ensure_defaults(db)
+            await db.commit()
+            print("\n✅ Atividades, práticas e conquistas padrão disponíveis.\n")
+            return
+
         if "--reset" in sys.argv:
             print("\n\n🗑️   Deletando os dados prévios do seu banco...")
             await clear_db(db)
@@ -183,9 +207,7 @@ async def seed() -> None:
 
         existente = await db.execute(select(User))
         if existente.scalars().first() is not None:
-            await ensure_default_activities(db)
-            await ensure_default_good_practices(db)
-            await ensure_default_achievements(db)
+            await ensure_defaults(db)
             await db.commit()
             print("\n\n✅ Atividades, práticas e conquistas disponíveis; dados preservados.\n\n")
             return
