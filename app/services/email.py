@@ -21,7 +21,8 @@ SMTP_TIMEOUT_SECONDS = 10
 # (produção sem acesso para configurar os secrets do ECS). A variável de ambiente, quando tem
 # valor, sempre vence.
 SMTP_USERNAME_SETTING = "smtp_username"
-SMTP_PASSWORD_SETTING = "smtp_password"
+# Nome da chave na tabela, não uma senha.
+SMTP_PASSWORD_SETTING = "smtp_password"  # nosec B105
 
 
 class SmtpNotConfiguredError(RuntimeError):
