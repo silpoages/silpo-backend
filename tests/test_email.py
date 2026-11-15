@@ -118,6 +118,26 @@ async def test_smtp_falls_back_to_credentials_stored_in_the_database(
     smtp = mock_smtp_class.return_value.__enter__.return_value
     smtp.login.assert_called_once_with("db-user@example.com", "db-app-password")
     smtp.send_message.assert_called_once()
+    # O Gmail recusa um From diferente da conta autenticada: mantém o nome, troca o endereço.
+    message: EmailMessage = smtp.send_message.call_args[0][0]
+    assert message["From"] == "Silpo <db-user@example.com>"
+
+
+@pytest.mark.usefixtures("smtp_settings_without_credentials")
+async def test_smtp_uses_the_sender_stored_in_the_database_when_present(
+    db_session: AsyncSession,
+) -> None:
+    await _store_smtp_credentials(db_session, "db-user@example.com", "db-app-password")
+    db_session.add(AppSetting(key="email_from", value="Equipe Silpo <db-user@example.com>"))
+    await db_session.flush()
+    service = EmailService(db_session)
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
+
+    smtp = mock_smtp_class.return_value.__enter__.return_value
+    message: EmailMessage = smtp.send_message.call_args[0][0]
+    assert message["From"] == "Equipe Silpo <db-user@example.com>"
 
 
 @pytest.mark.usefixtures("smtp_settings")
@@ -132,6 +152,8 @@ async def test_smtp_environment_credentials_win_over_the_database(
 
     smtp = mock_smtp_class.return_value.__enter__.return_value
     smtp.login.assert_called_once_with("silpo@example.com", "app-password")
+    message: EmailMessage = smtp.send_message.call_args[0][0]
+    assert message["From"] == "Silpo <silpo@example.com>"
 
 
 @pytest.mark.usefixtures("smtp_settings_without_credentials")
