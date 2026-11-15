@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 SMTP_TIMEOUT_SECONDS = 10
 
-# Chaves em `app_setting` usadas quando SMTP_USERNAME/SMTP_PASSWORD chegam vazios no ambiente
-# (produção sem acesso para configurar os secrets do ECS). A variável de ambiente, quando tem
-# valor, sempre vence.
+# Chaves em `app_setting` com credenciais SMTP. Quando as duas existem, valem sobre
+# SMTP_USERNAME/SMTP_PASSWORD do ambiente: em produção os secrets do ECS só mudam com acesso de
+# administrador na AWS, e o banco a equipe consegue corrigir pelo túnel.
 SMTP_USERNAME_SETTING = "smtp_username"
 # Nome da chave na tabela, não uma senha.
 SMTP_PASSWORD_SETTING = "smtp_password"  # nosec B105
@@ -67,7 +67,7 @@ class EmailService:
         username = self.settings.smtp_username
         password = self.settings.smtp_password
         from_address = self.from_address
-        if (not username or not password) and self.db is not None:
+        if self.db is not None:
             result = await self.db.execute(
                 select(AppSetting.key, AppSetting.value).where(
                     AppSetting.key.in_(
@@ -76,13 +76,16 @@ class EmailService:
                 )
             )
             stored = {key: value for key, value in result.tuples().all()}
-            if not username and stored.get(SMTP_USERNAME_SETTING):
-                username = stored[SMTP_USERNAME_SETTING]
+            stored_username = stored.get(SMTP_USERNAME_SETTING, "")
+            stored_password = stored.get(SMTP_PASSWORD_SETTING, "")
+            # Só o par completo substitui o ambiente: misturar usuário de um com senha do outro
+            # nunca autentica.
+            if stored_username and stored_password:
+                username, password = stored_username, stored_password
                 display_name = parseaddr(self.from_address)[0] or "Silpo"
                 from_address = stored.get(EMAIL_FROM_SETTING) or formataddr(
                     (display_name, username)
                 )
-            password = password or stored.get(SMTP_PASSWORD_SETTING, "")
 
         if not username or not password:
             raise SmtpNotConfiguredError(

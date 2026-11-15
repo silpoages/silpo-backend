@@ -141,10 +141,29 @@ async def test_smtp_uses_the_sender_stored_in_the_database_when_present(
 
 
 @pytest.mark.usefixtures("smtp_settings")
-async def test_smtp_environment_credentials_win_over_the_database(
+async def test_smtp_database_credentials_win_over_the_environment(
     db_session: AsyncSession,
 ) -> None:
+    # Produção: o ECS recebe credenciais erradas que só o admin da AWS consegue trocar.
     await _store_smtp_credentials(db_session, "db-user@example.com", "db-app-password")
+    service = EmailService(db_session)
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        await service.send(to="user@example.com", subject="Welcome", html="<p>Hello</p>")
+
+    smtp = mock_smtp_class.return_value.__enter__.return_value
+    smtp.login.assert_called_once_with("db-user@example.com", "db-app-password")
+    message: EmailMessage = smtp.send_message.call_args[0][0]
+    assert message["From"] == "Silpo <db-user@example.com>"
+
+
+@pytest.mark.usefixtures("smtp_settings")
+@pytest.mark.parametrize("stored_keys", [(), ("smtp_username",), ("smtp_password",)])
+async def test_smtp_uses_the_environment_without_a_complete_pair_in_the_database(
+    db_session: AsyncSession, stored_keys: tuple[str, ...]
+) -> None:
+    db_session.add_all([AppSetting(key=key, value="from-db") for key in stored_keys])
+    await db_session.flush()
     service = EmailService(db_session)
 
     with patch("smtplib.SMTP") as mock_smtp_class:
