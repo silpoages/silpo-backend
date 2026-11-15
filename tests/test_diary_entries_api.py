@@ -30,6 +30,8 @@ PAST = "2026-03-18"
         ("get", "/diary-entries/calendar?month=2026-11"),
         ("get", f"/diary-entries/{uuid.uuid4()}"),
         ("delete", f"/diary-entries/{uuid.uuid4()}"),
+        ("get", "/diary-entries/deleted"),
+        ("post", f"/diary-entries/{uuid.uuid4()}/restore"),
     ],
 )
 async def test_diary_endpoints_require_authentication(
@@ -171,3 +173,85 @@ async def test_calendar_rejects_an_invalid_month(
     )
 
     assert response.status_code == 422
+
+
+async def test_deleted_entries_are_listed_and_restored_only_by_the_owner(
+    client: AsyncClient, create_user: CreateUser, auth_headers: AuthHeaders
+) -> None:
+    owner = await create_user()
+    other = await create_user()
+    created = await client.post(
+        "/diary-entries",
+        headers=auth_headers(owner.id),
+        json={"note": "volta depois", "entry_date": PAST, "mood": "BEM"},
+    )
+    assert created.status_code == 201
+    entry_id = created.json()["id"]
+
+    empty = await client.get("/diary-entries/deleted", headers=auth_headers(owner.id))
+    assert empty.status_code == 200
+    assert empty.json()["total"] == 0
+
+    removed = await client.delete(f"/diary-entries/{entry_id}", headers=auth_headers(owner.id))
+    assert removed.status_code == 204
+
+    deleted = await client.get("/diary-entries/deleted", headers=auth_headers(owner.id))
+    assert deleted.status_code == 200
+    body = deleted.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == entry_id
+    assert body["items"][0]["note"] == "volta depois"
+    assert body["items"][0]["mood"] == "BEM"
+    assert body["items"][0]["deleted_at"] is not None
+
+    others_view = await client.get("/diary-entries/deleted", headers=auth_headers(other.id))
+    assert others_view.json()["total"] == 0
+    stolen = await client.post(f"/diary-entries/{entry_id}/restore", headers=auth_headers(other.id))
+    assert stolen.status_code == 404
+
+    restored = await client.post(
+        f"/diary-entries/{entry_id}/restore", headers=auth_headers(owner.id)
+    )
+    assert restored.status_code == 200
+    assert restored.json()["id"] == entry_id
+    assert restored.json()["entry_date"] == PAST
+
+    listing = await client.get("/diary-entries", headers=auth_headers(owner.id))
+    assert [item["id"] for item in listing.json()["items"]] == [entry_id]
+    after = await client.get("/diary-entries/deleted", headers=auth_headers(owner.id))
+    assert after.json()["total"] == 0
+
+    again = await client.post(f"/diary-entries/{entry_id}/restore", headers=auth_headers(owner.id))
+    assert again.status_code == 404
+
+
+async def test_restore_keeps_the_note_but_not_the_removed_photo(
+    client: AsyncClient, create_user: CreateUser, auth_headers: AuthHeaders, tmp_path: Path
+) -> None:
+    owner = await create_user()
+    storage = LocalImageStorage(tmp_path)
+    app.dependency_overrides[get_image_storage] = lambda: storage
+    png = b"\x89PNG\r\n\x1a\n" + b"pixels"
+
+    uploaded = await client.post(
+        "/diary-entries/images",
+        headers=auth_headers(owner.id),
+        files={"file": ("foto.png", png, "image/png")},
+    )
+    key = uploaded.json()["image_url"]
+    created = await client.post(
+        "/diary-entries",
+        headers=auth_headers(owner.id),
+        json={"note": "com foto", "entry_date": PAST, "image_url": key},
+    )
+    entry_id = created.json()["id"]
+
+    await client.delete(f"/diary-entries/{entry_id}", headers=auth_headers(owner.id))
+    assert not await storage.exists(key)
+
+    restored = await client.post(
+        f"/diary-entries/{entry_id}/restore", headers=auth_headers(owner.id)
+    )
+    assert restored.status_code == 200
+    assert restored.json()["note"] == "com foto"
+    assert restored.json()["image_url"] is None

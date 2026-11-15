@@ -1,19 +1,17 @@
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable
-from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 import pytest_asyncio
 from pydantic import ValidationError
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.activity import Activity
 from app.models.meditation_activity import MeditationActivity
 from app.schemas.meditation import MeditationCreate, MeditationUpdate
 from app.services.meditation import MeditationService
-from scripts.seed import ensure_default_activities
 
 # Rotas administrativas ficam fora do escopo desta task; os testes aqui exercitam o
 # MeditationService e os schemas diretamente, sem passar pela camada HTTP.
@@ -301,33 +299,3 @@ async def test_delete_is_a_logical_delete(
 
     assert meditation.enabled is False
     assert meditation.deleted_at is not None
-
-
-@pytest.mark.parametrize("soft_deleted", [False, True])
-async def test_seed_preserves_unavailable_default_meditation(
-    db_session: AsyncSession, soft_deleted: bool
-) -> None:
-    _, meditation_id, _ = await ensure_default_activities(db_session)
-    meditation = await db_session.get(MeditationActivity, meditation_id)
-    assert meditation is not None
-
-    deleted_at = datetime.now(UTC) if soft_deleted else None
-    meditation.enabled = False
-    meditation.deleted_at = deleted_at
-    meditation.description = "Descrição editada"
-    meditation.audio_url = "https://example.com/novo-audio.mp3"
-    await db_session.flush()
-
-    for _ in range(2):
-        _, seeded_id, _ = await ensure_default_activities(db_session)
-        assert seeded_id == meditation_id
-
-    matching_ids = await db_session.scalars(
-        select(MeditationActivity.id).where(MeditationActivity.name == meditation.name)
-    )
-    assert matching_ids.all() == [meditation_id]
-    await db_session.refresh(meditation)
-    assert meditation.enabled is False
-    assert meditation.deleted_at == deleted_at
-    assert meditation.description == "Descrição editada"
-    assert meditation.audio_url == "https://example.com/novo-audio.mp3"

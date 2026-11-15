@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_current_user, get_user_service
 from app.enums import Role
 from app.models.user import User
-from app.schemas.user import UserCreate, UserDeleteResponse, UserRead
+from app.schemas.user import (
+    UserCreate,
+    UserDeleteResponse,
+    UserPreferencesRead,
+    UserPreferencesUpdate,
+    UserRead,
+)
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -18,6 +24,20 @@ async def update_user(
     service: UserService = Depends(get_user_service),
 ) -> User:
     return await service.update_user(user_id=current_user.id, payload=payload.model_dump())
+
+
+@router.get("/me/preferences", response_model=UserPreferencesRead)
+async def read_preferences(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.patch("/me/preferences", response_model=UserPreferencesRead)
+async def update_preferences(
+    payload: UserPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+) -> User:
+    return await service.update_preferences(current_user, payload)
 
 
 @router.delete("/{user_id}", response_model=UserDeleteResponse, status_code=status.HTTP_200_OK)

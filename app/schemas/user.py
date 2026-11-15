@@ -38,6 +38,20 @@ class UserDeleteResponse(BaseModel):
     message: str
 
 
+class UserPreferencesRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    daily_reminder_enabled: bool
+
+
+class UserPreferencesUpdate(BaseModel):
+    """Só as preferências: o `PATCH /users` exige o cadastro inteiro."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    daily_reminder_enabled: bool
+
+
 class AdminUserRead(BaseModel):
     id: uuid.UUID
     full_name: str | None
