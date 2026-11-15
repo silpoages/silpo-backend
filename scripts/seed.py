@@ -1,10 +1,23 @@
+"""Popula o banco.
+
+Uso (`python -m scripts.seed [opção]`):
+
+- sem opção: banco vazio recebe dados de exemplo, inclusive usuários de teste com senha fixa.
+  Banco com usuários só recebe os dados padrão. **Só para desenvolvimento.**
+- `--defaults-only`: só os dados padrão (atividades, práticas do bem e conquistas), nunca
+  usuários. Seguro em produção; o deploy roda a cada push na main.
+- `--reset`: apaga tudo e popula com os dados de exemplo.
+- `--clear-db`: apaga tudo e não popula.
+"""
+
 import asyncio
 import sys
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 
+from app.core.achievement_catalog import ACHIEVEMENT_CATALOG, ACHIEVEMENTS_BY_CODE
 from app.core.security import pwd_context
 from app.db.base import Base
 from app.db.session import async_session_maker
@@ -19,7 +32,6 @@ from app.models import (
     EmergencyContact,
     GoodPractice,
     GoodPracticeLog,
-    MeditationActivity,
     MoodLog,
     ProfessionalPatient,
     SelfRegulationActivity,
@@ -35,7 +47,7 @@ async def clear_db(db) -> None:
     await db.commit()
 
 
-async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID]:
     defaults = (
         (
             BreathingActivity,
@@ -49,14 +61,6 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
             },
         ),
         (
-            MeditationActivity,
-            "Meditação transcendental",
-            {
-                "max_duration_seconds": 300,
-                "audio_url": "https://www.youtube.com/watch?v=2p8q1vs9K78",
-            },
-        ),
-        (
             SelfRegulationActivity,
             "Estoura Bolhas",
             {"max_duration_seconds": 60, "bubble_spawn_interval_ms": 800},
@@ -64,13 +68,10 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
     )
     activity_ids = []
     for model, name, configuration in defaults:
-        existing_id = await db.scalar(
-            select(model.id)
-            .where(model.name == name, model.enabled.is_(True), model.deleted_at.is_(None))
-            .limit(1)
-        )
-        if existing_id is not None:
-            activity_ids.append(existing_id)
+        # Desativada ou excluída pelo admin também conta como existente: o seed não a recria.
+        existing = await db.scalar(select(model).where(model.name == name).limit(1))
+        if existing is not None:
+            activity_ids.append(existing.id)
             continue
 
         activity_id = uuid.uuid4()
@@ -78,7 +79,7 @@ async def ensure_default_activities(db) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID
         activity_ids.append(activity_id)
 
     await db.flush()
-    return activity_ids[0], activity_ids[1], activity_ids[2]
+    return activity_ids[0], activity_ids[1]
 
 
 async def ensure_default_good_practices(db) -> uuid.UUID:
@@ -118,14 +119,9 @@ async def ensure_default_good_practices(db) -> uuid.UUID:
     )
     first_practice_id = None
     for title, description in defaults:
+        # Desativada ou excluída pelo admin também conta como existente: o seed não a recria.
         practice_id = await db.scalar(
-            select(GoodPractice.id)
-            .where(
-                GoodPractice.title == title,
-                GoodPractice.enabled.is_(True),
-                GoodPractice.deleted_at.is_(None),
-            )
-            .limit(1)
+            select(GoodPractice.id).where(GoodPractice.title == title).limit(1)
         )
         if practice_id is None:
             practice_id = uuid.uuid4()
@@ -138,8 +134,67 @@ async def ensure_default_good_practices(db) -> uuid.UUID:
     return first_practice_id
 
 
+# Conquista de exemplo das versões anteriores do seed, criada com id aleatório.
+LEGACY_SAMPLE_ACHIEVEMENT = ("Primeiro Passo", "Completou a primeira atividade no Silpo.")
+
+
+async def ensure_default_achievements(db) -> None:
+    """Cadastra as conquistas do catálogo pelo id fixo, sem duplicar nem sobrescrever."""
+    existing_ids = set(
+        await db.scalars(
+            select(Achievement.id).where(
+                Achievement.id.in_([definition.id for definition in ACHIEVEMENT_CATALOG])
+            )
+        )
+    )
+    for definition in ACHIEVEMENT_CATALOG:
+        if definition.id in existing_ids:
+            continue
+        db.add(
+            Achievement(
+                id=definition.id,
+                name=definition.name,
+                description=definition.description,
+                image_url=definition.icon,
+            )
+        )
+
+    # A antiga "Primeiro Passo" vira a do catálogo: sai da contagem, mas os logs ficam.
+    legacy_name, legacy_description = LEGACY_SAMPLE_ACHIEVEMENT
+    await db.execute(
+        update(Achievement)
+        .where(
+            Achievement.name == legacy_name,
+            Achievement.description == legacy_description,
+            Achievement.enabled.is_(True),
+        )
+        .values(enabled=False)
+    )
+    await db.flush()
+
+
+async def ensure_defaults(db) -> None:
+    """Dados de referência do app: atividades, práticas do bem e conquistas.
+
+    Nunca cria usuários nem dados de exemplo, e não mexe no que já existe. É o que o deploy roda
+    em produção (`--defaults-only`), a cada deploy.
+    """
+    await ensure_default_activities(db)
+    await ensure_default_good_practices(db)
+    await ensure_default_achievements(db)
+
+
 async def seed() -> None:
+    if "--defaults-only" in sys.argv and ("--reset" in sys.argv or "--clear-db" in sys.argv):
+        raise SystemExit("--defaults-only não pode ser combinado com --reset ou --clear-db.")
+
     async with async_session_maker() as db:
+        if "--defaults-only" in sys.argv:
+            await ensure_defaults(db)
+            await db.commit()
+            print("\n✅ Atividades, práticas e conquistas padrão disponíveis.\n")
+            return
+
         if "--reset" in sys.argv:
             print("\n\n🗑️   Deletando os dados prévios do seu banco...")
             await clear_db(db)
@@ -152,10 +207,9 @@ async def seed() -> None:
 
         existente = await db.execute(select(User))
         if existente.scalars().first() is not None:
-            await ensure_default_activities(db)
-            await ensure_default_good_practices(db)
+            await ensure_defaults(db)
             await db.commit()
-            print("\n\n✅ Atividades e práticas do bem disponíveis; dados preservados.\n\n")
+            print("\n\n✅ Atividades, práticas e conquistas disponíveis; dados preservados.\n\n")
             return
 
         now = datetime.now(UTC)
@@ -224,15 +278,10 @@ async def seed() -> None:
             ),
         ]
 
-        (
-            breathing_activity_id,
-            meditation_activity_id,
-            self_regulation_activity_id,
-        ) = await ensure_default_activities(db)
+        breathing_activity_id, self_regulation_activity_id = await ensure_default_activities(db)
 
         breathing_session_id = uuid.uuid4()
         self_regulation_session_id = uuid.uuid4()
-        meditation_session_id = uuid.uuid4()
 
         activity_sessions = [
             ActivitySession(
@@ -243,14 +292,6 @@ async def seed() -> None:
                 time_spent_seconds=76,
                 posted_at=now,
             ),
-            ActivitySession(
-                id=meditation_session_id,
-                user_id=paciente2_id,
-                activity_id=meditation_activity_id,
-                type=ActivityType.MEDITATION,
-                time_spent_seconds=290,
-                posted_at=now,
-            ),
             SelfRegulationSession(
                 id=self_regulation_session_id,
                 user_id=paciente1_id,
@@ -259,19 +300,6 @@ async def seed() -> None:
                 posted_at=now,
                 bubbles_exploded=23,
             ),
-        ]
-
-        achievement_id = uuid.uuid4()
-        achievements = [
-            Achievement(
-                id=achievement_id,
-                name="Primeiro Passo",
-                image_url="https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/Bot%C3%B3n_Me_gusta.svg/1280px-Bot%C3%B3n_Me_gusta.svg.png?utm_source=pt.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-                description="Completou a primeira atividade no Silpo.",
-            ),
-        ]
-        achievement_logs = [
-            AchievementLog(user_id=paciente1_id, achievement_id=achievement_id),
         ]
 
         good_practice_id = await ensure_default_good_practices(db)
@@ -288,10 +316,23 @@ async def seed() -> None:
                 log_date=now.date(),
             ),
         ]
+        await ensure_default_achievements(db)
+        # Coerentes com os registros acima: Sol tem 1 emoção, 1 prática, 1 respiração e 1
+        # entrada no diário; Rafael não tem registros.
+        achievement_logs = [
+            AchievementLog(
+                user_id=paciente1_id,
+                achievement_id=ACHIEVEMENTS_BY_CODE[code].id,
+                achieved_at=now,
+            )
+            for code in ("first_step", "small_victories", "moment_to_breathe", "my_story_matters")
+        ]
+
         diary_entries = [
             DiaryEntry(
                 user_id=paciente1_id,
                 mood_log_id=mood_log_id,
+                entry_date=now.date(),
                 note="Hoje consegui ir no café perto de casa. Fiquei feliz e tomei um capuccino.",
             ),
         ]
@@ -306,7 +347,7 @@ async def seed() -> None:
             DailyMessage(message="Neste momento, estou seguro e protegido."),
         ]
 
-        db.add_all(users + achievements + daily_messages)
+        db.add_all(users + daily_messages)
         await db.flush()
 
         db.add_all(

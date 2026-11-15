@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.good_practice import GoodPractice
 from app.models.good_practice_log import GoodPracticeLog
 from app.schemas.good_practice import GoodPracticeCreate
+from app.services.achievement import AchievementService
 
 
 class GoodPracticeService:
@@ -118,6 +119,7 @@ class GoodPracticeService:
         self.db.add(good_practice_log)
         await self.db.commit()
         await self.db.refresh(good_practice_log)
+        await AchievementService(self.db).evaluate_after_action(user_id)
         return good_practice_log
 
     async def get_by_id(self, good_practice_id: uuid.UUID) -> GoodPractice:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,7 +11,7 @@ from app.enums import Mood
 
 class MoodLog(Base):
     __tablename__ = "mood_log"
-    __table_args__ = (UniqueConstraint("user_id", "log_date", name="uq_mood_log_user_date"),)
+    __table_args__ = (Index("ix_mood_log_user_id_log_date", "user_id", "log_date"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(

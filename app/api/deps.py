@@ -7,11 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.models.user import User
+from app.services.achievement import AchievementService
 from app.services.activity import ActivityService
+from app.services.admin_dashboard import AdminDashboardService
+from app.services.audio_storage import AudioStorage, get_audio_storage
+from app.services.daily_message import DailyMessageService
+from app.services.dashboard_moods import DashboardMoodsService
+from app.services.dashboard_summary import DashboardSummaryService
+from app.services.diary_entry import DiaryEntryService
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.emergency_contact import EmergencyContactService
 from app.services.good_practice import GoodPracticeService
+from app.services.image_storage import ImageStorage, get_image_storage
 from app.services.journey import JourneyService
+from app.services.meditation import MeditationService
 from app.services.mood_log import MoodLogService
 from app.services.password_reset import PasswordResetService
 from app.services.user import UserService
@@ -19,6 +28,10 @@ from app.services.user import UserService
 DbSession = AsyncGenerator[AsyncSession, None]
 
 get_session = get_db
+
+
+def get_achievement_service(db: AsyncSession = Depends(get_session)) -> AchievementService:
+    return AchievementService(db)
 
 
 def get_activity_service(db: AsyncSession = Depends(get_session)) -> ActivityService:
@@ -29,8 +42,20 @@ def get_mood_log_service(db: AsyncSession = Depends(get_session)) -> MoodLogServ
     return MoodLogService(db)
 
 
+def get_dashboard_moods_service(
+    db: AsyncSession = Depends(get_session),
+) -> DashboardMoodsService:
+    return DashboardMoodsService(db)
+
+
 def get_user_service(db: AsyncSession = Depends(get_session)) -> UserService:
     return UserService(db)
+
+
+def get_dashboard_summary_service(
+    db: AsyncSession = Depends(get_session),
+) -> DashboardSummaryService:
+    return DashboardSummaryService(db)
 
 
 def get_emergency_contact_service(
@@ -69,3 +94,27 @@ async def get_current_admin(
     user_service: UserService = Depends(get_user_service),
 ) -> User:
     return await user_service.get_active_admin(user_id)
+
+
+def get_admin_dashboard_service(
+    db: AsyncSession = Depends(get_session),
+) -> AdminDashboardService:
+    return AdminDashboardService(db)
+
+
+def get_daily_message_service(db: AsyncSession = Depends(get_session)) -> DailyMessageService:
+    return DailyMessageService(db)
+
+
+def get_meditation_service(
+    db: AsyncSession = Depends(get_session),
+    storage: AudioStorage = Depends(get_audio_storage),
+) -> MeditationService:
+    return MeditationService(db, storage)
+
+
+def get_diary_entry_service(
+    db: AsyncSession = Depends(get_session),
+    images: ImageStorage = Depends(get_image_storage),
+) -> DiaryEntryService:
+    return DiaryEntryService(db, images)

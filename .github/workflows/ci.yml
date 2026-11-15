@@ -106,6 +106,65 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # One-off ECS tasks with the image just pushed, in order: migrations, the app's reference
+      # data (activities, good practices and achievements — never users) and the achievement
+      # backfill, which grants already-earned achievements to existing users without alerts.
+      # All idempotent, so they run on every deploy; any failure stops before the redeploy.
+      - name: Run migrations, reference data and achievement backfill
+        run: |
+          set -euo pipefail
+          CLUSTER="${{ vars.AWS_ECS_CLUSTER }}"
+          SERVICE="${{ vars.AWS_ECS_SERVICE }}"
+
+          SERVICE_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0]' --output json)
+          TASK_DEF=$(jq -r '.taskDefinition' <<< "$SERVICE_JSON")
+          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TASK_DEF" \
+            --query 'taskDefinition.containerDefinitions[0].name' --output text)
+
+          RUN_ARGS=(--cluster "$CLUSTER" --task-definition "$TASK_DEF")
+          if [ "$(jq -r '.networkConfiguration // empty' <<< "$SERVICE_JSON")" != "" ]; then
+            RUN_ARGS+=(--network-configuration "$(jq -c '.networkConfiguration' <<< "$SERVICE_JSON")")
+          fi
+          if [ "$(jq -r '.capacityProviderStrategy // [] | length' <<< "$SERVICE_JSON")" != "0" ]; then
+            RUN_ARGS+=(--capacity-provider-strategy "$(jq -c '.capacityProviderStrategy' <<< "$SERVICE_JSON")")
+          else
+            RUN_ARGS+=(--launch-type "$(jq -r '.launchType // "FARGATE"' <<< "$SERVICE_JSON")")
+          fi
+
+          # run_task <label> <command as JSON array>: runs the container with that command and
+          # fails the job if the task doesn't exit with 0.
+          run_task() {
+            local label="$1" command="$2"
+            local overrides task_arn task_json exit_code
+            overrides=$(jq -nc --arg name "$CONTAINER" --argjson cmd "$command" \
+              '{containerOverrides: [{name: $name, command: $cmd}]}')
+
+            task_arn=$(aws ecs run-task "${RUN_ARGS[@]}" --started-by "gha-$label" \
+              --overrides "$overrides" --query 'tasks[0].taskArn' --output text)
+            if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then
+              echo "::error::Failed to start the $label task"
+              exit 1
+            fi
+            echo "$label task: $task_arn"
+
+            aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task_arn"
+
+            task_json=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task_arn" \
+              --query 'tasks[0]' --output json)
+            exit_code=$(jq -r --arg name "$CONTAINER" \
+              '.containers[] | select(.name == $name) | .exitCode // "none"' <<< "$task_json")
+            if [ "$exit_code" != "0" ]; then
+              echo "::error::$label failed (exit code: $exit_code, reason: $(jq -r '.stoppedReason' <<< "$task_json")). Check the task's logs in CloudWatch."
+              exit 1
+            fi
+            echo "$label finished successfully."
+          }
+
+          run_task migrations '["alembic", "upgrade", "head"]'
+          run_task reference-data '["python", "-m", "scripts.seed", "--defaults-only"]'
+          run_task achievement-backfill '["python", "-m", "scripts.backfill_achievements"]'
+
       # The ECS task definition always points at the ":latest" tag, so a plain image push
       # doesn't change what's running — the service has to be told to redeploy explicitly.
       - name: Force new ECS deployment

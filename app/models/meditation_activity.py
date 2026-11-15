@@ -14,6 +14,7 @@ class MeditationActivity(Activity):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("activity.id"), primary_key=True
     )
+    description: Mapped[str] = mapped_column(Text, server_default="", nullable=False)
     audio_url: Mapped[str] = mapped_column(Text, nullable=False)
 
     __mapper_args__ = {"polymorphic_identity": ActivityType.MEDITATION}

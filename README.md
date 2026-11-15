@@ -190,6 +190,26 @@ All three jobs must pass before a PR can be merged. To enforce this as a hard bl
 required status checks in the repository's branch protection settings (Settings → Branches →
 Branch protection rules → `main`).
 
+## Meditation audio storage
+
+`POST /admin/meditations` (admin only) takes `multipart/form-data` with `name`, `description`,
+`max_duration_seconds`, `enabled` (optional, default `true`) and an `audio` MP3 file (validated by
+content, max 20 MB). The file is stored under a random name and the meditation's `audio_url`
+points at `GET /media/meditations/{file}`, which the app plays directly.
+
+Where the file goes is set by `AUDIO_STORAGE_BACKEND`:
+
+- `local` (default) — written to `AUDIO_STORAGE_LOCAL_DIR`. In docker-compose that's the
+  `media_data` named volume, so uploads survive container restarts.
+- `s3` — written to `AUDIO_S3_BUCKET` (under `AUDIO_S3_PREFIX`); the media route answers with a
+  redirect to a short-lived presigned URL, so the bucket stays private. **Required in
+  production**: ECS Fargate's disk is wiped on every task restart. Credentials come from the
+  ECS task role, which needs `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on the
+  prefix (provisioned in silpo-iac).
+
+If saving the database record fails, the uploaded file is deleted, and if saving the file fails,
+no record is created.
+
 ## Example endpoint
 
 A minimal `Template` CRUD is included at `/templates` to validate the API → SQLAlchemy →

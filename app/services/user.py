@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.enums import Gender, Role
 from app.models.user import User
+from app.schemas.user import UserPreferencesUpdate
 from app.services.email_confirmation import EmailConfirmationService
 from app.services.password_reset import PasswordResetService
 
@@ -97,6 +98,12 @@ class UserService:
             setattr(user, field, value)
 
         await self._commit_or_conflict()
+        await self.db.refresh(user)
+        return user
+
+    async def update_preferences(self, user: User, payload: UserPreferencesUpdate) -> User:
+        user.daily_reminder_enabled = payload.daily_reminder_enabled
+        await self.db.commit()
         await self.db.refresh(user)
         return user
 
