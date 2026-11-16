@@ -4,7 +4,7 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, Response
 
 from app.api.deps import get_current_user, get_diary_entry_service
 from app.models.diary_entry import DiaryEntry
@@ -93,16 +93,27 @@ async def get_diary_image(
     current_user: User = Depends(get_current_user),
     storage: LocalImageStorage | S3ImageStorage = Depends(get_image_storage),
 ) -> Response:
-    if image_owner_id(key) != current_user.id or not await storage.exists(key):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    if image_owner_id(key) != current_user.id:
+        raise not_found
 
     if isinstance(storage, S3ImageStorage):
-        return RedirectResponse(
-            storage.presigned_url(key), status_code=status.HTTP_307_TEMPORARY_REDIRECT
+        # Entregue pela própria API, não por redirecionamento a um link temporário do S3: o app
+        # pede a foto com o token no Authorization, e seguir o redirecionamento com o token faz o
+        # S3 recusar ("Only one auth mechanism allowed"); no navegador, o redirecionamento ainda
+        # exigiria CORS no bucket. As fotos têm centenas de KB, então passar pela API não pesa.
+        data = await storage.read(key)
+        if data is None:
+            raise not_found
+        return Response(
+            content=data,
+            media_type=content_type_for_key(key),
+            # Só o próprio usuário pode ver: nada de cache compartilhado (CloudFront, proxies).
+            headers={"Cache-Control": "private, max-age=300"},
         )
-    if isinstance(storage, LocalImageStorage):
+    if isinstance(storage, LocalImageStorage) and await storage.exists(key):
         return FileResponse(storage.path_for(key), media_type=content_type_for_key(key))
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    raise not_found
 
 
 @router.get("/calendar", response_model=DiaryMonthSummary)
