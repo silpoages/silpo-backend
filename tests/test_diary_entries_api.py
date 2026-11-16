@@ -14,6 +14,7 @@ from app.main import app
 from app.models.mood_log import MoodLog
 from app.models.user import User
 from app.services.image_storage import LocalImageStorage
+from app.services.image_validation import MAX_IMAGE_SIZE_BYTES
 
 CreateUser = Callable[..., Awaitable[User]]
 AuthHeaders = Callable[[uuid.UUID], dict[str, str]]
@@ -255,3 +256,29 @@ async def test_restore_keeps_the_note_but_not_the_removed_photo(
     assert restored.status_code == 200
     assert restored.json()["note"] == "com foto"
     assert restored.json()["image_url"] is None
+
+
+@pytest.mark.parametrize(
+    ("size", "expected_status"),
+    [(6 * 1024 * 1024, 201), (MAX_IMAGE_SIZE_BYTES + 1, 413)],
+)
+async def test_image_upload_size_limit(
+    client: AsyncClient,
+    create_user: CreateUser,
+    auth_headers: AuthHeaders,
+    tmp_path: Path,
+    size: int,
+    expected_status: int,
+) -> None:
+    user = await create_user()
+    app.dependency_overrides[get_image_storage] = lambda: LocalImageStorage(tmp_path)
+    jpeg = b"\xff\xd8\xff" + b"\x00" * (size - 3)
+
+    response = await client.post(
+        "/diary-entries/images",
+        headers=auth_headers(user.id),
+        files={"file": ("foto.jpg", jpeg, "image/jpeg")},
+    )
+
+    assert MAX_IMAGE_SIZE_BYTES == 10 * 1024 * 1024
+    assert response.status_code == expected_status

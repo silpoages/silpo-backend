@@ -1,6 +1,9 @@
 from fastapi import HTTPException, UploadFile, status
 
-MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+# O app já reduz a foto antes de enviar (cerca de 300 KB); o limite é folga para fotos que
+# chegam sem redução. A validação lê o arquivo inteiro na memória, e a tarefa em produção tem
+# 512 MB: não suba muito sem passar a ler em partes.
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 _READ_CHUNK_SIZE = 1024 * 1024
 
 _PNG = b"\x89PNG\r\n\x1a\n"
