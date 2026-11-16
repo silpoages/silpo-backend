@@ -1,9 +1,13 @@
+import io
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import date
 from pathlib import Path
 
+import boto3
 import pytest
+from botocore.response import StreamingBody
+from botocore.stub import Stubber
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +17,7 @@ from app.enums import Mood
 from app.main import app
 from app.models.mood_log import MoodLog
 from app.models.user import User
-from app.services.image_storage import LocalImageStorage
+from app.services.image_storage import LocalImageStorage, S3ImageStorage
 from app.services.image_validation import MAX_IMAGE_SIZE_BYTES
 
 CreateUser = Callable[..., Awaitable[User]]
@@ -282,3 +286,88 @@ async def test_image_upload_size_limit(
 
     assert MAX_IMAGE_SIZE_BYTES == 10 * 1024 * 1024
     assert response.status_code == expected_status
+
+
+S3_BUCKET = "silpo-media-test"
+
+
+@pytest.fixture
+def s3_storage() -> Iterator[tuple[S3ImageStorage, Stubber]]:
+    """S3 simulado pelo Stubber do botocore: nenhuma chamada sai para a rede."""
+    s3 = boto3.client(
+        "s3", region_name="us-east-2", aws_access_key_id="test", aws_secret_access_key="test"
+    )
+    with Stubber(s3) as stubber:
+        yield S3ImageStorage(bucket=S3_BUCKET, prefix="diary/", client=s3), stubber
+        stubber.assert_no_pending_responses()
+
+
+async def test_s3_photo_is_served_by_the_api_instead_of_redirecting(
+    client: AsyncClient,
+    create_user: CreateUser,
+    auth_headers: AuthHeaders,
+    s3_storage: tuple[S3ImageStorage, Stubber],
+) -> None:
+    # O app pede a foto com o token no Authorization; num redirecionamento para o S3, o token
+    # vai junto e o S3 responde 400 (e o navegador ainda exigiria CORS no bucket). Por isso a
+    # API devolve os bytes.
+    storage, stubber = s3_storage
+    app.dependency_overrides[get_image_storage] = lambda: storage
+    owner = await create_user()
+    key = f"{owner.id}/{'a' * 32}.jpg"
+    jpeg = b"\xff\xd8\xff" + b"pixels"
+    stubber.add_response(
+        "get_object",
+        {"Body": StreamingBody(io.BytesIO(jpeg), len(jpeg)), "ContentLength": len(jpeg)},
+        {"Bucket": S3_BUCKET, "Key": f"diary/{key}"},
+    )
+
+    response = await client.get(
+        f"/diary-entries/images/{key}", headers=auth_headers(owner.id), follow_redirects=False
+    )
+
+    assert response.status_code == 200
+    assert response.content == jpeg
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "private, max-age=300"
+
+
+async def test_s3_photo_of_another_user_is_not_even_fetched(
+    client: AsyncClient,
+    create_user: CreateUser,
+    auth_headers: AuthHeaders,
+    s3_storage: tuple[S3ImageStorage, Stubber],
+) -> None:
+    storage, _ = s3_storage
+    app.dependency_overrides[get_image_storage] = lambda: storage
+    owner = await create_user()
+    other = await create_user()
+
+    response = await client.get(
+        f"/diary-entries/images/{owner.id}/{'a' * 32}.jpg", headers=auth_headers(other.id)
+    )
+
+    # Sem resposta preparada no Stubber: qualquer chamada ao S3 faria o teste falhar.
+    assert response.status_code == 404
+
+
+async def test_missing_s3_photo_returns_404(
+    client: AsyncClient,
+    create_user: CreateUser,
+    auth_headers: AuthHeaders,
+    s3_storage: tuple[S3ImageStorage, Stubber],
+) -> None:
+    storage, stubber = s3_storage
+    app.dependency_overrides[get_image_storage] = lambda: storage
+    owner = await create_user()
+    key = f"{owner.id}/{'b' * 32}.png"
+    stubber.add_client_error(
+        "get_object",
+        service_error_code="NoSuchKey",
+        http_status_code=404,
+        expected_params={"Bucket": S3_BUCKET, "Key": f"diary/{key}"},
+    )
+
+    response = await client.get(f"/diary-entries/images/{key}", headers=auth_headers(owner.id))
+
+    assert response.status_code == 404
