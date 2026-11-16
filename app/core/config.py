@@ -57,7 +57,6 @@ class Settings(BaseSettings):
     # A leitura exige o dono autenticado; a URL assinada, quando houver, expira.
     diary_image_local_dir: str = "media/diary"
     diary_image_s3_prefix: str = "diary/"
-    diary_image_s3_presigned_url_expire_seconds: int = 60 * 5
 
     @property
     def database_url(self) -> str:

@@ -73,12 +73,10 @@ class S3ImageStorage:
         bucket: str,
         prefix: str,
         client: "S3Client",
-        presigned_url_expire_seconds: int,
     ) -> None:
         self.bucket = bucket
         self.prefix = prefix
         self.client = client
-        self.presigned_url_expire_seconds = presigned_url_expire_seconds
 
     def object_key(self, key: str) -> str:
         return f"{self.prefix}{key}"
@@ -108,12 +106,22 @@ class S3ImageStorage:
             raise
         return True
 
-    def presigned_url(self, key: str) -> str:
-        return self.client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": self.bucket, "Key": self.object_key(key)},
-            ExpiresIn=self.presigned_url_expire_seconds,
-        )
+    async def read(self, key: str) -> bytes | None:
+        """Conteúdo da foto, ou `None` se ela não existe."""
+        try:
+            response = await run_in_threadpool(
+                self.client.get_object, Bucket=self.bucket, Key=self.object_key(key)
+            )
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            raise
+        body = response["Body"]
+        try:
+            data: bytes = await run_in_threadpool(body.read)
+        finally:
+            body.close()
+        return data
 
 
 def content_type_for_key(key: str) -> str:
@@ -143,7 +151,6 @@ def build_image_storage(settings: Settings) -> ImageStorage:
             bucket=settings.audio_s3_bucket,
             prefix=settings.diary_image_s3_prefix,
             client=client,
-            presigned_url_expire_seconds=settings.diary_image_s3_presigned_url_expire_seconds,
         )
     return LocalImageStorage(settings.diary_image_local_dir)
 
