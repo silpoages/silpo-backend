@@ -156,6 +156,33 @@ uv run pytest
 
 This works the same way on Windows (with Docker Desktop running), Linux, and macOS.
 
+### Test coverage
+
+With Docker running, collect coverage using the same command as CI:
+
+```bash
+uv run pytest --cov --cov-report=term-missing --cov-report=html --cov-report=xml --cov-report=json
+uv run python scripts/coverage_summary.py
+```
+
+`pytest-cov` measures all Python modules in `app/`, including modules not imported by
+the tests, with branch coverage enabled. Tests, migration scripts and maintenance
+scripts are outside this application-code scope.
+
+- `coverage/html/index.html`: browsable per-file report.
+- `coverage/coverage.json`: machine-readable totals and per-file data.
+- `coverage/coverage.xml`: Cobertura report for other tools.
+
+The summary shows line and branch percentages separately, plus coverage.py's combined
+percentage (covered lines + covered branches divided by total lines + total branches).
+For comparisons with the web app, compare the line metric with lines and branches with
+branches, rather than comparing the combined number to the web line percentage.
+
+CI publishes this table in its job summary and retains a `backend-coverage` artifact
+for 14 days. Reports after a test failure may be partial; also check the Test job result.
+Generated reports are ignored by Git. No minimum threshold is enforced yet: this change
+establishes the baseline. Coverage is not the test pass rate or a guarantee of correctness.
+
 ## Linting
 
 ```bash
@@ -183,7 +210,8 @@ scripts run under). No native Windows-specific setup is required.
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push and pull request:
 
 - **Lint** — `ruff check` + `ruff format --check`
-- **Test** — `pytest` (testcontainers spins up PostgreSQL inside the runner)
+- **Test** — `pytest` with line/branch coverage, a job summary and downloadable reports
+  (testcontainers spins up PostgreSQL inside the runner)
 - **Build** — builds the Docker image (runs only if lint and test pass)
 
 All three jobs must pass before a PR can be merged. To enforce this as a hard block, add them as
