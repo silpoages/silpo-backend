@@ -1,6 +1,5 @@
 import uuid
 from datetime import UTC, datetime, time
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, func, select
@@ -9,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.daily_message import DailyMessage
 from app.schemas.daily_message import DailyMessageCreate, DailyMessageUpdate
 
-DAILY_MESSAGE_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+# O "dia" é o dia em UTC, como no resto da API (humor, Jornada, boas práticas, dashboards).
+DAILY_MESSAGE_TIMEZONE = UTC
 
 
 class DailyMessageService:

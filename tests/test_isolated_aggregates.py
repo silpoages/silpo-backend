@@ -33,7 +33,7 @@ from app.services.dashboard_summary import DashboardSummaryService
 
 AuthHeaders = Callable[[uuid.UUID], dict[str, str]]
 
-# 02:30 UTC de 10/03 ainda é 23:30 de 09/03 em São Paulo (UTC-3, sem horário de verão).
+# 02:30 UTC de 10/03: em Brasília ainda é 09/03, mas o dia contado é o de UTC.
 NOW = datetime(2026, 3, 10, 2, 30, tzinfo=UTC)
 
 
@@ -240,7 +240,7 @@ async def test_activity_summary_counts_each_category_and_sorts_by_executions(
     assert [item.name for item in summary[2:]] == ["Diário", "Práticas do bem", "Respiração"]
 
 
-async def test_activity_summary_uses_sao_paulo_day_boundaries(
+async def test_activity_summary_uses_utc_day_boundaries(
     isolated_session: AsyncSession,
 ) -> None:
     await _only_these_users_count(isolated_session)
@@ -249,16 +249,16 @@ async def test_activity_summary_uses_sao_paulo_day_boundaries(
     practice = GoodPractice(title="Gratidão", description="x")
     isolated_session.add(practice)
     await isolated_session.flush()
-    # Período de 7 dias terminando em 09/03 (São Paulo): de 03/03 00:00 a 10/03 00:00 local,
-    # ou seja, de 03/03 03:00 a 10/03 03:00 em UTC.
-    inside = [datetime(2026, 3, 3, 3, 0, tzinfo=UTC), datetime(2026, 3, 10, 2, 59, tzinfo=UTC)]
-    outside = [datetime(2026, 3, 3, 2, 59, tzinfo=UTC), datetime(2026, 3, 10, 3, 0, tzinfo=UTC)]
+    # Período de 7 dias terminando em 10/03 (UTC): de 04/03 00:00 a 11/03 00:00 em UTC. Um
+    # registro às 22h de Brasília em 10/03 (01:00 UTC de 11/03) já é do dia seguinte.
+    inside = [datetime(2026, 3, 4, 0, 0, tzinfo=UTC), datetime(2026, 3, 10, 23, 59, tzinfo=UTC)]
+    outside = [datetime(2026, 3, 3, 23, 59, tzinfo=UTC), datetime(2026, 3, 11, 1, 0, tzinfo=UTC)]
     for at in inside + outside:
         isolated_session.add(_session(user, ids, ActivityType.BREATHING, at))
         isolated_session.add(
             GoodPracticeLog(user_id=user.id, good_practice_id=practice.id, posted_at=at)
         )
-    for day in (date(2026, 3, 2), date(2026, 3, 3), date(2026, 3, 9), date(2026, 3, 10)):
+    for day in (date(2026, 3, 3), date(2026, 3, 4), date(2026, 3, 10), date(2026, 3, 11)):
         isolated_session.add(DiaryEntry(user_id=user.id, entry_date=day, note=str(day)))
     await isolated_session.commit()
 
