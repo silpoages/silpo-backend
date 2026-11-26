@@ -156,6 +156,12 @@ uv run pytest
 
 This works the same way on Windows (with Docker Desktop running), Linux, and macOS.
 
+Coverage (lines and branches) must stay at 100%; CI fails below that:
+
+```bash
+uv run pytest --cov=app --cov-report=term-missing
+```
+
 ## Linting
 
 ```bash
@@ -183,7 +189,7 @@ scripts run under). No native Windows-specific setup is required.
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push and pull request:
 
 - **Lint** — `ruff check` + `ruff format --check`
-- **Test** — `pytest` (testcontainers spins up PostgreSQL inside the runner)
+- **Test** — `pytest --cov=app` (testcontainers spins up PostgreSQL inside the runner; fails below 100% coverage)
 - **Build** — builds the Docker image (runs only if lint and test pass)
 
 All three jobs must pass before a PR can be merged. To enforce this as a hard block, add them as
