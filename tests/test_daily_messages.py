@@ -183,7 +183,7 @@ async def test_today_returns_only_display_fields(
     assert response.json() == {"id": str(daily_message.id), "message": "Respire fundo"}
 
 
-async def test_today_turns_at_midnight_in_sao_paulo(
+async def test_today_turns_at_midnight_utc(
     client: AsyncClient,
     db_session: AsyncSession,
     create_user: CreateUser,

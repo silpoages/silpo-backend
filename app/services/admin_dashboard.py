@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +10,8 @@ from app.models.good_practice_log import GoodPracticeLog
 from app.models.user import User
 from app.schemas.admin_dashboard import DashboardActivityRead
 
-DASHBOARD_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+# O "dia" é o dia em UTC, como no resto da API (humor, Jornada, boas práticas, dashboards).
+DASHBOARD_TIMEZONE = UTC
 
 
 def _counted_users_filter() -> tuple[ColumnElement[bool], ...]:

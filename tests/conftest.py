@@ -102,6 +102,42 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest_asyncio.fixture
+async def isolated_session(database_url: str) -> AsyncGenerator[AsyncSession, None]:
+    """Sessão dentro de uma transação desfeita no fim do teste.
+
+    Os commits do código testado só liberam savepoints, então o teste pode esvaziar tabelas
+    compartilhadas (conquistas, boas práticas, agregados do dashboard) sem afetar os outros.
+    """
+    engine = create_async_engine(database_url)
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        session = AsyncSession(
+            bind=connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            await transaction.rollback()
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def isolated_client(isolated_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield isolated_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    get_settings.cache_clear()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
 async def create_user(
     db_session: AsyncSession,
 ) -> Callable[..., Awaitable[User]]:
